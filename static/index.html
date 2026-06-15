@@ -1,0 +1,3048 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Central de Performance Operacional MMS</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root {
+      --ink: #20238b;
+      --muted: #69708f;
+      --line: #e0e4f5;
+      --bg: #f7f8ff;
+      --paper: #fff;
+      --mms-blue: #252895;
+      --mms-blue-dark: #10175b;
+      --mms-orange: #ff861f;
+      --mms-sky: #2f6eb3;
+      --mms-green: #21a957;
+      --mms-magenta: #ef4dec;
+      --mms-lilac: #d9dcef;
+      --mms-soft: #fff4ec;
+      --blue: var(--mms-blue);
+      --teal: var(--mms-sky);
+      --amber: var(--mms-orange);
+      --rose: var(--mms-magenta);
+      --green: var(--mms-green);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(900px 460px at 88% 10%, rgba(255, 134, 31, .08), transparent 58%),
+        radial-gradient(820px 520px at 12% 0%, rgba(217, 220, 239, .48), transparent 52%),
+        linear-gradient(180deg, #fff 0%, var(--bg) 38%, #fff 100%);
+      font-family: "Segoe UI", Calibri, Arial, sans-serif;
+      line-height: 1.35;
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+    }
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      pointer-events: none;
+      z-index: -1;
+      opacity: .58;
+      transform: rotate(-34deg);
+      border-radius: 34% 66% 58% 42% / 46% 32% 68% 54%;
+    }
+    body::before {
+      width: 520px;
+      height: 320px;
+      left: -190px;
+      top: 150px;
+      background: var(--mms-soft);
+    }
+    body::after {
+      width: 360px;
+      height: 230px;
+      right: -140px;
+      bottom: 20px;
+      background: rgba(217, 220, 239, .72);
+    }
+    .topbar {
+      height: 58px;
+      margin-left: 250px;
+      background: rgba(255,255,255,.88);
+      border-bottom: 1px solid rgba(224, 228, 245, .92);
+      backdrop-filter: blur(18px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 22px;
+      position: sticky;
+      top: 0;
+      z-index: 8;
+      box-shadow: 0 14px 34px rgba(37, 40, 149, .08);
+    }
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .topbar-mark {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, var(--mms-blue), #3438b8);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 900;
+      flex: 0 0 auto;
+    }
+    .topbar-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--ink);
+      white-space: nowrap;
+    }
+    .topbar-view {
+      color: var(--muted);
+      font-size: 13px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding-left: 12px;
+      border-left: 1px solid var(--line);
+    }
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .topbar-pill {
+      min-height: 30px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--muted);
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .topbar-pill strong { color: var(--ink); }
+    .topbar-pill.warn { border-color: #fed7aa; color: #91480c; background: #fff7ed; }
+    .topbar-pill.critical { border-color: #fecaca; color: #991b1b; background: #fef2f2; }
+    header {
+      background:
+        linear-gradient(110deg, var(--mms-blue) 0%, #252a98 58%, #151b68 100%);
+      color: #fff;
+      padding: 24px 30px 24px;
+      border-bottom: 7px solid var(--mms-orange);
+      margin-left: 250px;
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+      box-shadow: 0 18px 42px rgba(37, 40, 149, .18);
+    }
+    header::before,
+    header::after {
+      content: "";
+      position: absolute;
+      border-radius: 34% 66% 58% 42% / 46% 32% 68% 54%;
+      transform: rotate(-35deg);
+      pointer-events: none;
+      z-index: -1;
+    }
+    header::before {
+      width: 260px;
+      height: 150px;
+      right: 92px;
+      top: -40px;
+      background: rgba(255, 134, 31, .92);
+    }
+    header::after {
+      width: 190px;
+      height: 116px;
+      right: -42px;
+      bottom: -34px;
+      background: rgba(239, 77, 236, .62);
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 250px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+    .sidebar {
+      position: fixed;
+      inset: 0 auto 0 0;
+      width: 250px;
+      background:
+        linear-gradient(180deg, #0f1450 0%, #11184f 58%, #101426 100%);
+      color: #fff;
+      padding: 18px 14px 22px;
+      overflow: auto;
+      border-right: 6px solid var(--mms-orange);
+      z-index: 10;
+      box-shadow: 16px 0 40px rgba(16, 20, 38, .2);
+    }
+    .side-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      font-weight: 900;
+      text-transform: uppercase;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    .side-logo span:first-child {
+      width: 42px;
+      height: 42px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(145deg, var(--mms-orange), #ff9b3d);
+      color: #fff;
+      box-shadow: 0 10px 24px rgba(255, 134, 31, .3);
+    }
+    .side-search {
+      margin: 0 0 14px;
+    }
+    .side-search input {
+      min-height: 34px;
+      border-color: rgba(255,255,255,.16);
+      background: rgba(255,255,255,.08);
+      color: #fff;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+    .side-search input::placeholder { color: #94a3b8; }
+    .side-group {
+      margin: 14px 0 6px;
+      color: #8d94c9;
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 800;
+    }
+    .side-item {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 9px;
+      min-height: 36px;
+      border-radius: 8px;
+      background: transparent;
+      color: #cbd5e1;
+      text-align: left;
+      padding: 8px 10px;
+      margin: 2px 0;
+    }
+    .side-item:hover {
+      background: rgba(255,255,255,.08);
+      color: #fff;
+    }
+    .side-item.active {
+      background: #fff;
+      color: var(--mms-blue);
+      box-shadow: inset 5px 0 0 var(--mms-orange), 0 12px 24px rgba(0,0,0,.14);
+    }
+    .side-item.active .side-badge {
+      background: var(--mms-green);
+      color: #fff;
+    }
+    .side-badge {
+      margin-left: auto;
+      min-width: 22px;
+      height: 18px;
+      border-radius: 999px;
+      display: inline-grid;
+      place-items: center;
+      padding: 0 6px;
+      background: var(--mms-green);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 900;
+    }
+    .side-badge.warn { background: var(--mms-orange); }
+    .side-badge.critical { background: #d92d20; }
+    .side-sub {
+      color: #64748b;
+      font-size: 12px;
+      padding: 2px 0 2px 34px;
+    }
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+    .brand-mark {
+      width: 62px;
+      height: 62px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: #fff;
+      color: var(--mms-blue);
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: 0;
+      box-shadow: inset 0 -7px 0 var(--mms-orange);
+      position: relative;
+    }
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      right: -10px;
+      top: -8px;
+      border-radius: 34% 66% 58% 42% / 46% 32% 68% 54%;
+      background: var(--mms-orange);
+      transform: rotate(-28deg);
+    }
+    .brand-name {
+      display: grid;
+      gap: 2px;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+    .brand-name span:last-child {
+      color: #ffd7b6;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(24px, 3vw, 38px);
+      letter-spacing: 0;
+      font-weight: 800;
+    }
+    .subtitle {
+      color: #eef2ff;
+      max-width: 1120px;
+      font-size: 15px;
+    }
+    main {
+      max-width: 1480px;
+      margin: 0 0 0 250px;
+      padding: 20px 22px 38px;
+      position: relative;
+    }
+    main::before {
+      content: "";
+      position: absolute;
+      width: 220px;
+      height: 138px;
+      right: 52px;
+      top: 330px;
+      background: rgba(47, 110, 179, .08);
+      border-radius: 34% 66% 58% 42% / 46% 32% 68% 54%;
+      transform: rotate(-35deg);
+      pointer-events: none;
+      z-index: -1;
+    }
+    .panel {
+      background: var(--paper);
+      border: 1px solid rgba(224, 228, 245, .9);
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 14px;
+      box-shadow: 0 16px 36px rgba(37, 40, 149, .07);
+    }
+    .upload {
+      display: grid;
+      grid-template-columns: minmax(250px, 1fr) 190px 150px auto auto;
+      gap: 10px;
+      align-items: end;
+    }
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(130px, 1fr));
+      gap: 10px;
+      align-items: end;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+      backdrop-filter: blur(10px);
+    }
+    .filter-chips {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex-wrap: wrap;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #edf1f7;
+    }
+    .filter-chip-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      margin-right: 2px;
+    }
+    .filter-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 27px;
+      padding: 4px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #f8fafc;
+      color: #344054;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .filter-chip.empty {
+      color: var(--muted);
+      font-weight: 600;
+    }
+    label {
+      display: block;
+      color: #344054;
+      font-size: 12px;
+      font-weight: 760;
+      margin-bottom: 4px;
+    }
+    select, input {
+      width: 100%;
+      min-height: 36px;
+      border: 1px solid #c7cbed;
+      border-radius: 8px;
+      padding: 6px 9px;
+      color: var(--ink);
+      background: #fff;
+      font-size: 13px;
+    }
+    button {
+      min-height: 36px;
+      border: 0;
+      border-radius: 6px;
+      color: #fff;
+      background: var(--mms-blue);
+      font-weight: 750;
+      cursor: pointer;
+      padding: 8px 12px;
+      box-shadow: 0 9px 18px rgba(37, 40, 149, .16);
+    }
+    button.secondary { background: var(--mms-sky); }
+    button:hover { filter: brightness(1.03); transform: translateY(-1px); }
+    button:disabled { opacity: .55; cursor: wait; }
+    .status {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 8px;
+    }
+    .status strong { color: var(--ink); }
+    .view-switch {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .view-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .view-button {
+      background: #fff;
+      color: var(--mms-blue);
+      border: 1px solid var(--line);
+    }
+    .view-button.active {
+      background: var(--mms-blue);
+      color: #fff;
+      border-color: var(--mms-blue);
+    }
+    .view-title {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 760;
+    }
+    .view[hidden] {
+      display: none;
+    }
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .kpi {
+      background: var(--paper);
+      border: 1px solid rgba(224, 228, 245, .95);
+      border-radius: 8px;
+      padding: 16px;
+      min-height: 116px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 18px 38px rgba(37, 40, 149, .08);
+    }
+    .kpi::after {
+      content: "";
+      position: absolute;
+      width: 74px;
+      height: 48px;
+      right: -22px;
+      top: -12px;
+      border-radius: 34% 66% 58% 42% / 46% 32% 68% 54%;
+      transform: rotate(-35deg);
+      background: rgba(217, 220, 239, .64);
+    }
+    .kpi:nth-child(1) { border-top: 4px solid var(--mms-blue); }
+    .kpi:nth-child(2) { border-top: 4px solid var(--mms-orange); }
+    .kpi:nth-child(3) { border-top: 4px solid var(--mms-sky); }
+    .kpi:nth-child(4) { border-top: 4px solid var(--mms-green); }
+    .kpi:nth-child(5) { border-top: 4px solid var(--mms-magenta); }
+    .kpi .label {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: 820;
+    }
+    .kpi .value {
+      font-size: clamp(25px, 3vw, 38px);
+      font-weight: 800;
+      margin-top: 8px;
+      letter-spacing: 0;
+      color: var(--mms-blue);
+    }
+    .kpi .note {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 6px;
+    }
+    .kpi.good { border-top-color: var(--mms-green); }
+    .kpi.warn { border-top-color: var(--mms-orange); }
+    .kpi.critical { border-top-color: #d92d20; }
+    .kpi.good .value { color: var(--mms-green); }
+    .kpi.warn .value { color: var(--mms-orange); }
+    .kpi.critical .value { color: #d92d20; }
+    .kpi .status-dot {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--mms-green);
+      margin-right: 5px;
+    }
+    .kpi.warn .status-dot { background: var(--mms-orange); }
+    .kpi.critical .status-dot { background: #d92d20; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 14px;
+    }
+    section {
+      background: var(--paper);
+      border: 1px solid rgba(224, 228, 245, .95);
+      border-radius: 8px;
+      padding: 16px;
+      min-width: 0;
+      box-shadow: 0 16px 36px rgba(37, 40, 149, .06);
+    }
+    .span-4 { grid-column: span 4; }
+    .span-5 { grid-column: span 5; }
+    .span-6 { grid-column: span 6; }
+    .span-7 { grid-column: span 7; }
+    .span-12 { grid-column: span 12; }
+    h2 {
+      margin: 0 0 12px;
+      font-size: 16px;
+      letter-spacing: 0;
+      color: var(--mms-blue);
+      font-weight: 850;
+    }
+    .chart {
+      width: 100%;
+      min-height: 250px;
+    }
+    .bar-row {
+      display: grid;
+      grid-template-columns: minmax(130px, 1.25fr) 3fr 64px;
+      gap: 10px;
+      align-items: center;
+      min-height: 30px;
+      font-size: 12px;
+    }
+    .bar-label {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #344054;
+    }
+    .bar-track {
+      background: #eceffe;
+      border-radius: 999px;
+      height: 11px;
+      overflow: hidden;
+    }
+    .bar {
+      height: 11px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--mms-blue), var(--mms-sky));
+    }
+    .bar-row:nth-child(3n) .bar { background: linear-gradient(90deg, var(--mms-sky), #5e9bd8); }
+    .bar-row:nth-child(3n+1) .bar { background: linear-gradient(90deg, var(--mms-orange), #ffaf61); }
+    .bar-value {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      color: #344054;
+      font-weight: 750;
+    }
+    svg {
+      width: 100%;
+      height: 250px;
+      overflow: visible;
+    }
+    .axis { stroke: #98a2b3; stroke-width: 1; }
+    .line { fill: none; stroke: var(--mms-orange); stroke-width: 3; }
+    .point { fill: var(--mms-orange); stroke: #fff; stroke-width: 2; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    th, td {
+      border-bottom: 1px solid #edf1f7;
+      padding: 8px 7px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      color: var(--mms-blue);
+      background: #f1f3ff;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0;
+      position: sticky;
+      top: 0;
+    }
+    td.num, th.num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .table-wrap {
+      max-height: 400px;
+      overflow: auto;
+      border: 1px solid #edf1f7;
+      border-radius: 6px;
+    }
+    .table-tools {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .table-tools input {
+      max-width: 280px;
+    }
+    .table-page {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .table-page button {
+      min-height: 28px;
+      padding: 4px 9px;
+      font-size: 12px;
+      background: var(--mms-sky);
+    }
+    .health {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(160px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .health-card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      border-left: 6px solid var(--mms-green);
+    }
+    .health-card.warn { border-left-color: var(--mms-orange); }
+    .health-card.critical { border-left-color: #d92d20; }
+    .health-card strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 15px;
+    }
+    .health-card span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .heatmap {
+      display: grid;
+      gap: 4px;
+      overflow: auto;
+      font-size: 11px;
+    }
+    .heat-cell {
+      min-width: 82px;
+      min-height: 34px;
+      border-radius: 5px;
+      padding: 5px;
+      color: #111827;
+      background: #eef2f7;
+      display: grid;
+      align-content: center;
+      text-align: center;
+    }
+    .scatter {
+      width: 100%;
+      height: 280px;
+      position: relative;
+      border-left: 1px solid #98a2b3;
+      border-bottom: 1px solid #98a2b3;
+      margin-top: 8px;
+      background: linear-gradient(90deg, rgba(53,167,74,.08) 50%, rgba(255,140,40,.08) 50%),
+                  linear-gradient(0deg, rgba(217,45,32,.08) 50%, rgba(53,167,74,.08) 50%);
+    }
+    .scatter-dot {
+      position: absolute;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--mms-orange);
+      border: 2px solid #fff;
+      box-shadow: 0 1px 4px rgba(15,23,42,.25);
+      transform: translate(-50%, 50%);
+    }
+    .geo-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      gap: 10px;
+      min-height: 250px;
+      align-items: stretch;
+    }
+    .geo-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #f8fafc;
+      display: grid;
+      gap: 7px;
+      align-content: start;
+      border-top: 5px solid var(--mms-green);
+    }
+    .geo-card.warn { border-top-color: var(--mms-orange); }
+    .geo-card.critical { border-top-color: #d92d20; }
+    .geo-card strong { color: var(--mms-blue); }
+    .geo-card span { color: var(--muted); font-size: 12px; }
+    .leaflet-map {
+      width: 100%;
+      height: 520px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .svg-map-wrap {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+    .map-tabs {
+      display: grid;
+      gap: 7px;
+    }
+    .map-tab {
+      background: #fff;
+      color: var(--mms-blue);
+      border: 1px solid var(--line);
+      text-align: left;
+      min-height: 32px;
+    }
+    .map-tab.active {
+      background: var(--mms-blue);
+      color: #fff;
+    }
+    .svg-map {
+      width: 100%;
+      height: 520px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #eef6ff;
+    }
+    .alert-row {
+      display: grid;
+      grid-template-columns: 100px 1fr;
+      gap: 12px;
+      align-items: start;
+      padding: 12px;
+      border: 1px solid #edf1f7;
+      border-left: 5px solid var(--mms-green);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      background: #fff;
+      font-size: 13px;
+    }
+    .alert-body {
+      display: grid;
+      gap: 5px;
+    }
+    .alert-title {
+      color: var(--mms-blue);
+      font-weight: 850;
+    }
+    .alert-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .alert-action {
+      color: #253056;
+      font-size: 12px;
+    }
+    .alert-row.Amarelo { border-left-color: var(--mms-orange); background: #fffaf3; }
+    .alert-row.Vermelho { border-left-color: #d92d20; background: #fff7f7; }
+    .severity {
+      border-radius: 999px;
+      padding: 3px 8px;
+      text-align: center;
+      font-weight: 800;
+      color: #fff;
+      background: var(--mms-green);
+      font-size: 11px;
+    }
+    .severity.Amarelo { background: var(--mms-orange); }
+    .severity.Vermelho { background: #d92d20; }
+    .provider-detail {
+      display: none;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #f8fafc;
+      margin-top: 10px;
+    }
+    .provider-detail.active { display: block; }
+    .insight-list {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .insight-list li {
+      border-left: 4px solid var(--mms-orange);
+      background: #f8fafc;
+      padding: 10px;
+      border-radius: 0 6px 6px 0;
+      font-size: 13px;
+    }
+    .insight-kind {
+      display: inline-block;
+      margin-bottom: 4px;
+      color: var(--mms-blue);
+      font-size: 11px;
+      font-weight: 850;
+      text-transform: uppercase;
+    }
+    .method {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 8px;
+    }
+    .pill {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #fff0e3;
+      color: #91480c;
+      font-weight: 760;
+      font-size: 11px;
+      margin-right: 5px;
+    }
+    .login-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 999;
+      background: linear-gradient(135deg, #0f172a 0%, #20286f 55%, #111827 100%);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .login-overlay.active { display: flex; }
+    .login-card {
+      width: min(440px, 100%);
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      box-shadow: 0 24px 70px rgba(0,0,0,.28);
+      padding: 24px;
+    }
+    .login-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+      font-weight: 900;
+      color: var(--mms-blue);
+    }
+    .login-brand span:first-child {
+      width: 42px;
+      height: 42px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: var(--mms-orange);
+      color: #fff;
+    }
+    .login-card h2 { font-size: 22px; margin-bottom: 8px; }
+    .login-card p { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+    .login-actions { display: grid; gap: 10px; margin-top: 16px; }
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(15, 23, 42, .54);
+      padding: 18px;
+    }
+    .modal.active { display: flex; }
+    .modal-card {
+      width: min(560px, 100%);
+      background: #fff;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      box-shadow: 0 24px 80px rgba(15, 23, 42, .24);
+      padding: 18px;
+    }
+    .modal-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    /* MMS institutional visual layer */
+    .panel.upload {
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.98), rgba(255,255,255,.92)),
+        radial-gradient(240px 120px at 100% 0%, rgba(255,134,31,.12), transparent 70%);
+      border-left: 5px solid var(--mms-orange);
+    }
+    .filters {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,255,255,.9));
+      border-top: 1px solid #fff;
+    }
+    .filter-chip {
+      border-radius: 999px;
+      background: #fff;
+      box-shadow: 0 6px 14px rgba(37, 40, 149, .06);
+    }
+    .kpi:nth-child(1)::after { background: rgba(37, 40, 149, .12); }
+    .kpi:nth-child(2)::after { background: rgba(255, 134, 31, .18); }
+    .kpi:nth-child(3)::after { background: rgba(47, 110, 179, .14); }
+    .kpi:nth-child(4)::after { background: rgba(33, 169, 87, .14); }
+    .kpi:nth-child(5)::after { background: rgba(239, 77, 236, .14); }
+    .kpi:nth-child(6)::after { background: rgba(217, 220, 239, .68); }
+    .kpi:hover,
+    section:hover,
+    .panel:hover {
+      box-shadow: 0 22px 44px rgba(37, 40, 149, .1);
+    }
+    .kpi .label,
+    label,
+    th {
+      color: #59608c;
+    }
+    .kpi .note,
+    .method,
+    .status,
+    .health-card span {
+      color: #747b99;
+    }
+    section {
+      position: relative;
+      overflow: hidden;
+    }
+    section::before {
+      content: "";
+      position: absolute;
+      width: 118px;
+      height: 72px;
+      right: -44px;
+      top: -34px;
+      border-radius: 34% 66% 58% 42% / 46% 32% 68% 54%;
+      background: rgba(217, 220, 239, .35);
+      transform: rotate(-35deg);
+      pointer-events: none;
+    }
+    section:nth-of-type(3n)::before { background: rgba(255, 134, 31, .12); }
+    section:nth-of-type(3n+1)::before { background: rgba(47, 110, 179, .1); }
+    section:nth-of-type(3n+2)::before { background: rgba(33, 169, 87, .1); }
+    .health-card {
+      box-shadow: 0 14px 30px rgba(37, 40, 149, .06);
+      background:
+        linear-gradient(180deg, #fff, #fbfcff);
+    }
+    .chart svg {
+      filter: drop-shadow(0 10px 18px rgba(37, 40, 149, .05));
+    }
+    .line {
+      stroke: var(--mms-blue);
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .point {
+      fill: var(--mms-orange);
+      stroke: #fff;
+      stroke-width: 3;
+      filter: drop-shadow(0 3px 6px rgba(255, 134, 31, .22));
+    }
+    .axis {
+      stroke: #c3c8df;
+    }
+    .table-wrap {
+      background: #fff;
+      box-shadow: inset 0 1px 0 #fff;
+    }
+    tbody tr:hover {
+      background: #fff8f2;
+    }
+    th {
+      background: linear-gradient(180deg, #f5f6ff, #ecefff);
+      color: var(--mms-blue);
+    }
+    .leaflet-map,
+    .svg-map {
+      border: 1px solid rgba(224, 228, 245, .95);
+      box-shadow: 0 18px 38px rgba(37, 40, 149, .08);
+      background: #f8fbff;
+    }
+    .map-tabs {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      box-shadow: 0 14px 28px rgba(37, 40, 149, .06);
+    }
+    .map-tab {
+      border-radius: 8px;
+      font-weight: 780;
+    }
+    .map-tab.active {
+      background: linear-gradient(135deg, var(--mms-blue), var(--mms-sky));
+      box-shadow: 0 8px 18px rgba(37, 40, 149, .16);
+    }
+    .alert-row,
+    .insight-list li,
+    .provider-detail {
+      box-shadow: 0 12px 26px rgba(37, 40, 149, .05);
+    }
+    .severity {
+      box-shadow: 0 8px 16px rgba(15, 23, 42, .12);
+    }
+    .pill {
+      border-radius: 999px;
+      background: #fff2e8;
+      color: #9a4a0c;
+      border: 1px solid #ffe1c8;
+    }
+    .modal-card {
+      position: relative;
+      overflow: hidden;
+    }
+    .modal-card::before {
+      content: "";
+      position: absolute;
+      width: 150px;
+      height: 92px;
+      right: -54px;
+      top: -38px;
+      border-radius: 34% 66% 58% 42% / 46% 32% 68% 54%;
+      background: rgba(255, 134, 31, .16);
+      transform: rotate(-35deg);
+    }
+    @media (max-width: 1180px) {
+      .topbar { margin-left: 0; position: static; }
+      header { margin-left: 0; }
+      main { margin-left: 0; }
+      .sidebar { position: static; width: auto; border-right: 0; border-bottom: 5px solid var(--mms-orange); box-shadow: none; }
+      .layout { display: block; }
+      .filters { grid-template-columns: repeat(4, minmax(130px, 1fr)); position: static; }
+      .upload { grid-template-columns: 1fr 1fr; }
+      .kpis { grid-template-columns: repeat(2, 1fr); }
+      .health { grid-template-columns: repeat(2, 1fr); }
+      .span-4, .span-5, .span-6, .span-7 { grid-column: span 12; }
+      .svg-map-wrap { grid-template-columns: 1fr; }
+      .map-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 680px) {
+      .topbar { height: auto; align-items: flex-start; padding: 10px 12px; flex-direction: column; }
+      .topbar-right { justify-content: flex-start; }
+      main { padding: 12px; }
+      header { padding: 20px 16px 16px; }
+      .filters, .upload, .kpis, .health { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: 1fr; }
+      .span-4, .span-5, .span-6, .span-7, .span-12 { grid-column: span 1; }
+      .view-switch { align-items: stretch; }
+      .bar-row { grid-template-columns: 1fr; gap: 4px; margin-bottom: 10px; }
+      .bar-value { text-align: left; }
+      .brand-row { align-items: flex-start; }
+      .brand-mark { width: 52px; height: 52px; font-size: 20px; }
+      h1 { font-size: 26px; }
+      .map-tabs { grid-template-columns: 1fr; }
+      .leaflet-map, .svg-map { height: 420px; }
+      .modal-grid { grid-template-columns: 1fr; }
+      main::before, body::before, body::after { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-overlay" id="loginOverlay">
+    <div class="login-card">
+      <div class="login-brand"><span>MMS</span><strong>Central Operacional</strong></div>
+      <h2>Acesso ao dashboard</h2>
+      <p>Entre com seu usuário para aplicar permissões por perfil.</p>
+      <div>
+        <label for="loginEmail">Email</label>
+        <input id="loginEmail" type="email" value="admin@mms.local" autocomplete="username" />
+      </div>
+      <div style="margin-top:10px;">
+        <label for="loginPassword">Senha</label>
+        <input id="loginPassword" type="password" value="admin123" autocomplete="current-password" />
+      </div>
+      <div class="login-actions">
+        <button id="loginButton">Entrar</button>
+        <div class="status" id="loginStatus">Admin inicial: admin@mms.local / admin123</div>
+      </div>
+    </div>
+  </div>
+  <div class="modal" id="geoModal">
+    <div class="modal-card">
+      <h2>Editar coordenada</h2>
+      <div class="modal-grid">
+        <div><label for="geoCidade">Cidade</label><input id="geoCidade" /></div>
+        <div><label for="geoUf">UF</label><input id="geoUf" maxlength="2" /></div>
+        <div><label for="geoLat">Latitude</label><input id="geoLat" type="number" step="0.000001" /></div>
+        <div><label for="geoLon">Longitude</label><input id="geoLon" type="number" step="0.000001" /></div>
+        <div style="grid-column:1/-1"><label for="geoFonte">Fonte</label><input id="geoFonte" value="manual" /></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="secondary" id="geoCancel">Cancelar</button>
+        <button type="button" id="geoSave">Salvar coordenada</button>
+      </div>
+      <div class="method" id="geoModalStatus"></div>
+    </div>
+  </div>
+  <aside class="sidebar" aria-label="Menu principal">
+    <div class="side-logo"><span>MMS</span><span>Central Operacional</span></div>
+    <div class="side-search"><input id="sideSearch" type="search" placeholder="Buscar no menu" aria-label="Buscar no menu" /></div>
+    <div class="side-group">Visao Geral</div>
+    <button class="side-item view-button active" data-view="executive">Executivo <span class="side-badge" id="badgeExecutive">0</span></button>
+    <div class="side-group">Reclamacoes</div>
+    <button class="side-item view-button" data-view="complaints">Reclamacoes <span class="side-badge" id="badgeComplaints">0</span></button>
+    <div class="side-sub">Pareto</div>
+    <div class="side-sub">Clientes</div>
+    <div class="side-sub">Prestadores</div>
+    <div class="side-group">Produtividade</div>
+    <button class="side-item view-button" data-view="productivity">Produtividade <span class="side-badge" id="badgeProductivity">0%</span></button>
+    <div class="side-sub">Analistas</div>
+    <div class="side-sub">SLA</div>
+    <div class="side-sub">Backlog</div>
+    <div class="side-group">Operacao</div>
+    <button class="side-item view-button" data-view="operation">Operacao de Campo <span class="side-badge" id="badgeOperation">0%</span></button>
+    <div class="side-sub">HUBs</div>
+    <div class="side-sub">Montadores</div>
+    <div class="side-sub">Regionais</div>
+    <div class="side-group">Financeiro</div>
+    <div class="side-sub">Fora do escopo atual</div>
+    <div class="side-group">Admin</div>
+    <button class="side-item view-button" data-view="settings">Configuracoes</button>
+  </aside>
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-mark">MMS</div>
+      <div class="topbar-title">Central MMS</div>
+      <div class="topbar-view" id="topbarView">Executivo</div>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-pill" id="topbarScore">Indice <strong>0/100</strong></div>
+      <div class="topbar-pill" id="topbarSla">SLA <strong>0%</strong></div>
+      <div class="topbar-pill" id="topbarUpdated">Base local</div>
+      <button class="secondary" id="logoutButton" style="min-height:30px;padding:5px 10px;">Sair</button>
+    </div>
+  </div>
+  <header>
+    <div class="brand-row">
+      <div class="brand-mark">MMS</div>
+      <div class="brand-name">
+        <span>Muito Mais Serviços</span>
+        <span>vendedor · cliente · plataforma · hub · montador</span>
+      </div>
+    </div>
+    <h1>Central de Performance Operacional MMS</h1>
+    <div class="subtitle">Painel conectado a banco local para reclamações, produtividade SAC e operação de campo. O SLA mede o tempo em dias úteis entre abertura e fechamento da reclamação, com meta de até 5 dias úteis.</div>
+  </header>
+  <main>
+    <div class="panel">
+      <div class="upload">
+        <div>
+          <label for="file">Atualizar base com planilha</label>
+          <input id="file" type="file" accept=".xlsx,.xls" />
+        </div>
+        <div>
+          <label for="mode">Modo de importação</label>
+          <select id="mode">
+            <option value="replace">Substituir base</option>
+            <option value="append">Somar à base</option>
+          </select>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button id="upload">Importar planilha</button>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button class="secondary" id="reload">Recarregar painel</button>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button class="secondary" id="exportCsv">Exportar CSV</button>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button class="secondary" id="exportPdf">PDF executivo</button>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button class="secondary" id="exportPpt">PowerPoint</button>
+        </div>
+      </div>
+      <div class="status" id="uploadStatus">Aguardando planilha.</div>
+    </div>
+
+    <div class="panel filters" aria-label="Filtros do dashboard">
+      <div class="filter-chips" id="activeFilters">
+        <span class="filter-chip-label">Filtros ativos</span>
+        <span class="filter-chip empty">Todo período</span>
+      </div>
+      <div><label for="scope">Escopo</label><select id="scope"><option value="procedentes">Somente procedentes</option><option value="todos">Todas as reclamações</option></select></div>
+      <div><label for="period">Período</label><select id="period"><option value="all">Todo período</option><option value="last7">Últimos 7 dias</option><option value="last30">Últimos 30 dias</option><option value="last90">Últimos 90 dias</option><option value="ytd">YTD</option><option value="last12">Últimos 12 meses</option><option value="month">Mês específico</option><option value="range">Dias / intervalo</option></select></div>
+      <div><label for="month">Mês</label><select id="month"></select></div>
+      <div><label for="start">Data inicial</label><input id="start" type="date" /></div>
+      <div><label for="end">Data final</label><input id="end" type="date" /></div>
+      <div><label for="regiao">Região</label><select id="regiao"></select></div>
+      <div><label for="hub">HUB</label><select id="hub"></select></div>
+      <div><label for="cliente">Cliente</label><select id="cliente"></select></div>
+      <div><label for="analista">Analista SAC</label><select id="analista"></select></div>
+      <div><label for="cidade">Cidade</label><input id="cidade" type="search" placeholder="Buscar cidade" /></div>
+      <div><label>&nbsp;</label><button id="clear">Limpar filtros</button></div>
+    </div>
+
+    <div class="view" id="executiveView">
+      <div class="kpis">
+        <div class="kpi"><div class="label">Indice MMS</div><div class="value" id="eMmsIndex">0</div><div class="note" id="eMmsIndexNote">Score geral 0-100</div></div>
+        <div class="kpi"><div class="label">Saude da operacao</div><div class="value" id="eHealth">-</div><div class="note" id="eHealthNote">Visao consolidada</div></div>
+        <div class="kpi"><div class="label">Taxa de procedencia</div><div class="value" id="eProcPct">0%</div><div class="note" id="eProcNote">Reclamacoes procedentes / total</div></div>
+        <div class="kpi"><div class="label">SLA SAC</div><div class="value" id="eSlaPct">0%</div><div class="note">Fechamento em ate 5 dias uteis</div></div>
+        <div class="kpi"><div class="label">Sucesso operacional</div><div class="value" id="eSuccessPct">0%</div><div class="note">Assistencias concluidas / total</div></div>
+        <div class="kpi"><div class="label">Perdas operacionais</div><div class="value" id="eLossPct">0%</div><div class="note">Canceladas, frustradas, reagendadas e improdutivas</div></div>
+      </div>
+      <div class="health" id="eHealthCards"></div>
+      <div class="grid">
+        <section class="span-7">
+          <h2>Tendencia executiva</h2>
+          <div id="eTrendChart" class="chart"></div>
+        </section>
+        <section class="span-5">
+          <h2>Alertas prioritarios</h2>
+          <ul id="eAlerts" class="insight-list"></ul>
+        </section>
+        <section class="span-12">
+          <h2>Central de Alertas Operacionais</h2>
+          <div id="alertCenter"></div>
+        </section>
+        <section class="span-4">
+          <h2>Principais motivos procedentes</h2>
+          <div id="eReasonChart" class="chart"></div>
+        </section>
+        <section class="span-4">
+          <h2>HUBs com mais procedentes</h2>
+          <div id="eHubComplaintChart" class="chart"></div>
+        </section>
+        <section class="span-4">
+          <h2>HUBs com perda operacional</h2>
+          <div id="eHubOperationChart" class="chart"></div>
+        </section>
+        <section class="span-12">
+          <h2>Mapa operacional por regiao</h2>
+          <div class="actions" style="margin-bottom:10px;">
+            <button type="button" id="updateGeo">Atualizar Geocidades</button>
+            <button type="button" class="secondary" id="exportGeoPending">Exportar cidades sem coordenadas</button>
+          </div>
+          <div class="health" id="geoCoverageCards"></div>
+          <div id="geoCoverageWarning" class="method"></div>
+          <div id="eGeoMap" class="chart"></div>
+        </section>
+        <section class="span-12">
+          <h2>Cidades sem coordenadas</h2>
+          <div class="table-wrap"><table id="eMissingCitiesTable"></table></div>
+          <div class="method">Cidades listadas aqui ja estao cadastradas na tabela geocidades, mas ainda precisam de latitude e longitude.</div>
+        </section>
+        <section class="span-6">
+          <h2>Analistas por SLA</h2>
+          <div class="table-wrap"><table id="eSlaTable"></table></div>
+        </section>
+        <section class="span-6">
+          <h2>HUBs operacionais criticos</h2>
+          <div class="table-wrap"><table id="eHubRiskTable"></table></div>
+        </section>
+        <section class="span-12">
+          <h2>Score de risco de prestadores</h2>
+          <div class="table-wrap"><table id="providerRiskTable"></table></div>
+          <div id="providerDetail" class="provider-detail"></div>
+        </section>
+      </div>
+    </div>
+
+    <div class="view" id="complaintsView" hidden>
+    <div class="kpis">
+      <div class="kpi"><div class="label">Reclamações no filtro</div><div class="value" id="kTotal">0</div><div class="note">Base considerada após filtros</div></div>
+      <div class="kpi"><div class="label">Procedentes</div><div class="value" id="kProc">0</div><div class="note" id="kProcNote">0% do total filtrado</div></div>
+      <div class="kpi"><div class="label">Cidades com procedência</div><div class="value" id="kCities">0</div><div class="note">Cidades distintas</div></div>
+      <div class="kpi"><div class="label">HUBs envolvidos</div><div class="value" id="kHubs">0</div><div class="note">HUBs distintos</div></div>
+      <div class="kpi"><div class="label">Cliente líder</div><div class="value" id="kLead">-</div><div class="note" id="kLeadNote">Maior volume procedente</div></div>
+      <div class="kpi"><div class="label">Improcedentes</div><div class="value" id="kImpro">0</div><div class="note">Classificacao improcedente</div></div>
+      <div class="kpi"><div class="label">Sem status</div><div class="value" id="kSemStatus">0</div><div class="note">Ainda sem validacao</div></div>
+      <div class="kpi"><div class="label">Mes atual vs anterior</div><div class="value" id="kMonthDelta">0</div><div class="note" id="kMonthDeltaNote">Procedentes no mes mais recente</div></div>
+      <div class="kpi"><div class="label">Clientes reincidentes</div><div class="value" id="kReincidence">0</div><div class="note">Nova reclamacao em ate 30 dias</div></div>
+    </div>
+
+    <div class="grid">
+      <section class="span-7">
+        <h2>Evolução mensal de procedentes</h2>
+        <div id="lineChart" class="chart"></div>
+      </section>
+      <section class="span-5">
+        <h2>Leituras rápidas</h2>
+        <ul id="insights" class="insight-list"></ul>
+      </section>
+      <section class="span-4">
+        <h2>Procedentes por região</h2>
+        <div id="regiaoChart" class="chart"></div>
+      </section>
+      <section class="span-4">
+        <h2>Procedentes por HUB</h2>
+        <div id="hubChart" class="chart"></div>
+      </section>
+      <section class="span-4">
+        <h2>Procedentes por cliente</h2>
+        <div id="clienteChart" class="chart"></div>
+      </section>
+      <section class="span-6">
+        <h2>Top cidades com reclamações procedentes</h2>
+        <div id="cidadeChart" class="chart"></div>
+      </section>
+      <section class="span-6">
+        <h2>Principais motivos procedentes</h2>
+        <div id="motivoChart" class="chart"></div>
+      </section>
+      <section class="span-6">
+        <h2>Pareto de motivos procedentes</h2>
+        <div id="paretoReasonChart" class="chart"></div>
+      </section>
+      <section class="span-6">
+        <h2>Heatmap Regiao x Motivo</h2>
+        <div id="heatmapRegionReason" class="chart"></div>
+      </section>
+      <section class="span-6">
+        <h2>Clientes reincidentes em ate 30 dias</h2>
+        <div class="table-wrap"><table id="recurrenceTable"></table></div>
+      </section>
+      <section class="span-6">
+        <h2>Prestadores criticos</h2>
+        <div class="table-wrap"><table id="providerCriticalTable"></table></div>
+      </section>
+      <section class="span-12">
+        <h2>Ranking Região + HUB + Cliente + Cidade</h2>
+        <section class="span-6">
+          <h2>Mix de validacao</h2>
+          <div id="validationMixChart" class="chart"></div>
+        </section>
+        <section class="span-6">
+          <h2>Status das reclamacoes</h2>
+          <div id="statusMixChart" class="chart"></div>
+        </section>
+        <section class="span-12">
+          <h2>Evolucao mensal: total, procedentes e taxa</h2>
+          <div class="table-wrap"><table id="monthlyMixTable"></table></div>
+        </section>
+        <section class="span-4">
+          <h2>Taxa de procedencia por regiao</h2>
+          <div class="table-wrap"><table id="rateRegionTable"></table></div>
+        </section>
+        <section class="span-4">
+          <h2>Taxa de procedencia por HUB</h2>
+          <div class="table-wrap"><table id="rateHubTable"></table></div>
+        </section>
+        <section class="span-4">
+          <h2>Taxa de procedencia por cliente</h2>
+          <div class="table-wrap"><table id="rateClientTable"></table></div>
+        </section>
+        <div class="table-wrap"><table id="comboTable"></table></div>
+      </section>
+      <section class="span-12">
+        <h2>Detalhes recentes de reclamacoes procedentes</h2>
+        <div class="table-wrap"><table id="complaintDetailsTable"></table></div>
+      </section>
+      <section class="span-6">
+        <h2>Grupos de motivo por região</h2>
+        <div class="table-wrap"><table id="grupoRegiaoTable"></table></div>
+      </section>
+      <section class="span-6">
+        <h2>Prestadores mais associados a procedentes</h2>
+        <div class="table-wrap"><table id="prestadorTable"></table></div>
+      </section>
+      <section class="span-12">
+        <h2>Histórico de importações</h2>
+        <div class="table-wrap"><table id="importsTable"></table></div>
+        <div class="method"><span class="pill">Definição</span> Procedente = validação CSR igual a “Procedente” ou “Procedência Consolidado” igual a 1. Dados sensíveis da planilha original não aparecem no painel.</div>
+      </section>
+    </div>
+    </div>
+
+    <div class="view" id="productivityView" hidden>
+      <div class="kpis">
+        <div class="kpi"><div class="label">Fechadas</div><div class="value" id="pClosed">0</div><div class="note" id="pClosedNote">Meta diaria: 10 por analista</div></div>
+        <div class="kpi"><div class="label">Atingimento meta</div><div class="value" id="pGoalPct">0%</div><div class="note" id="pGoalNote">Fechadas / meta esperada</div></div>
+        <div class="kpi"><div class="label">SLA ate 5 dias uteis</div><div class="value" id="pSlaPct">0%</div><div class="note" id="pSlaNote">Media de dias uteis</div></div>
+        <div class="kpi"><div class="label">Backlog</div><div class="value" id="pBacklog">0</div><div class="note">Nao fechadas no recorte</div></div>
+        <div class="kpi"><div class="label">Mes atual vs anterior</div><div class="value" id="pMonthDelta">0</div><div class="note" id="pMonthDeltaNote">Fechadas no mes mais recente</div></div>
+      </div>
+
+      <div class="grid">
+        <section class="span-7">
+          <h2>Produtividade mensal</h2>
+          <div id="pMonthlyChart" class="chart"></div>
+        </section>
+        <section class="span-5">
+          <h2>Leituras rapidas</h2>
+          <ul id="pInsights" class="insight-list"></ul>
+        </section>
+        <section class="span-6">
+          <h2>Ranking de analistas por volume tratado</h2>
+          <div id="pAnalystChart" class="chart"></div>
+        </section>
+        <section class="span-6">
+          <h2>Produtividade diaria</h2>
+          <div id="pDailyChart" class="chart"></div>
+        </section>
+        <section class="span-6">
+          <h2>Reclamacoes fechadas por dia</h2>
+          <div id="pClosedDailyChart" class="chart"></div>
+        </section>
+        <section class="span-6">
+          <h2>Reclamacoes fechadas por analista</h2>
+          <div id="pClosedAnalystChart" class="chart"></div>
+        </section>
+        <section class="span-12">
+          <h2>Produtividade por analista</h2>
+          <div class="table-wrap"><table id="pAnalystTable"></table></div>
+        </section>
+        <section class="span-12">
+          <h2>Produtividade diaria por analista</h2>
+          <div class="table-wrap"><table id="pDailyAnalystTable"></table></div>
+        </section>
+        <section class="span-6">
+          <h2>Atingimento da meta diaria por analista</h2>
+          <div class="table-wrap"><table id="pGoalTable"></table></div>
+        </section>
+        <section class="span-6">
+          <h2>SLA por analista</h2>
+          <div class="table-wrap"><table id="pSlaTable"></table></div>
+        </section>
+        <section class="span-6">
+          <h2>Backlog por status</h2>
+          <div id="pBacklogChart" class="chart"></div>
+        </section>
+        <section class="span-6">
+          <h2>Aging do backlog</h2>
+          <div id="pBacklogAgingChart" class="chart"></div>
+        </section>
+        <section class="span-6">
+          <h2>Matriz Volume x SLA</h2>
+          <div id="pQualityScatter" class="chart"></div>
+        </section>
+        <section class="span-6">
+          <h2>Resumo executivo</h2>
+          <ul id="pExecutiveSummary" class="insight-list"></ul>
+        </section>
+        <section class="span-12">
+          <h2>Ranking de eficiencia por analista</h2>
+          <div class="table-wrap"><table id="pEfficiencyTable"></table></div>
+        </section>
+        <section class="span-12">
+          <h2>Backlog por analista</h2>
+          <div class="table-wrap"><table id="pBacklogAnalystTable"></table></div>
+        </section>
+        <section class="span-6">
+          <h2>SLA por cliente</h2>
+          <div class="table-wrap"><table id="pSlaClientTable"></table></div>
+        </section>
+        <section class="span-6">
+          <h2>SLA por motivo</h2>
+          <div class="table-wrap"><table id="pSlaReasonTable"></table></div>
+        </section>
+        <section class="span-12">
+          <h2>Qualidade x volume por analista</h2>
+          <div class="table-wrap"><table id="pQualityVolumeTable"></table></div>
+        </section>
+        <section class="span-4">
+          <h2>Concentracao por cliente</h2>
+          <div class="table-wrap"><table id="pConcentrationClientTable"></table></div>
+        </section>
+        <section class="span-4">
+          <h2>Concentracao por HUB</h2>
+          <div class="table-wrap"><table id="pConcentrationHubTable"></table></div>
+        </section>
+        <section class="span-4">
+          <h2>Concentracao por motivo</h2>
+          <div class="table-wrap"><table id="pConcentrationReasonTable"></table></div>
+        </section>
+        <section class="span-12">
+          <h2>Registros do recorte</h2>
+          <div class="table-wrap"><table id="pDetailsTable"></table></div>
+        </section>
+        <section class="span-12">
+          <h2>Procedentes, improcedentes e sem status por analista</h2>
+          <div class="table-wrap"><table id="pStatusTable"></table></div>
+        </section>
+      </div>
+    </div>
+
+    <div class="view" id="operationView" hidden>
+      <div class="kpis">
+        <div class="kpi"><div class="label">Assistencias</div><div class="value" id="oTotal">0</div><div class="note">Total operacional no filtro</div></div>
+        <div class="kpi"><div class="label">Concluidas</div><div class="value" id="oDone">0</div><div class="note" id="oDoneNote">Taxa de sucesso</div></div>
+        <div class="kpi"><div class="label">Perdas operacionais</div><div class="value" id="oLoss">0</div><div class="note" id="oLossNote">Canceladas, frustradas, reagendadas e improdutivas</div></div>
+        <div class="kpi"><div class="label">HUB critico</div><div class="value" id="oWorstHub">-</div><div class="note" id="oWorstHubNote">Maior taxa de perda</div></div>
+        <div class="kpi"><div class="label">Mes atual vs anterior</div><div class="value" id="oMonthDelta">0</div><div class="note" id="oMonthDeltaNote">Concluidas no mes mais recente</div></div>
+      </div>
+
+      <div class="grid">
+        <section class="span-7">
+          <h2>Assistencias concluidas por mes</h2>
+          <div id="oMonthlyChart" class="chart"></div>
+        </section>
+        <section class="span-5">
+          <h2>Leituras rapidas</h2>
+          <ul id="oInsights" class="insight-list"></ul>
+        </section>
+        <section class="span-6">
+          <h2>Status operacional</h2>
+          <div id="oStatusChart" class="chart"></div>
+        </section>
+        <section class="span-6">
+          <h2>Principais motivos de nao realizacao</h2>
+          <div id="oReasonChart" class="chart"></div>
+        </section>
+        <section class="span-4">
+          <h2>HUBs por taxa de perda</h2>
+          <div id="oHubChart" class="chart"></div>
+        </section>
+        <section class="span-4">
+          <h2>Regionais por taxa de perda</h2>
+          <div id="oRegionalChart" class="chart"></div>
+        </section>
+        <section class="span-4">
+          <h2>Cidades por taxa de perda</h2>
+          <div id="oCityChart" class="chart"></div>
+        </section>
+        <section class="span-12">
+          <h2>Ranking operacional por HUB</h2>
+          <div class="table-wrap"><table id="oHubTable"></table></div>
+        </section>
+        <section class="span-6">
+          <h2>Top montadores saudaveis</h2>
+          <div class="table-wrap"><table id="oBestResourceTable"></table></div>
+        </section>
+        <section class="span-6">
+          <h2>Montadores criticos</h2>
+          <div class="table-wrap"><table id="oCriticalResourceTable"></table></div>
+        </section>
+        <section class="span-6">
+          <h2>Performance por regional</h2>
+          <div class="table-wrap"><table id="oRegionalTable"></table></div>
+        </section>
+        <section class="span-6">
+          <h2>Performance por tipo de atividade</h2>
+          <div class="table-wrap"><table id="oServiceTable"></table></div>
+        </section>
+        <section class="span-6">
+          <h2>Risco por cidade</h2>
+          <div class="table-wrap"><table id="oCityTable"></table></div>
+        </section>
+        <section class="span-6">
+          <h2>Capacidade por montador</h2>
+          <div class="table-wrap"><table id="oCapacityTable"></table></div>
+        </section>
+        <section class="span-12">
+          <h2>Historico de importacoes operacionais</h2>
+          <div class="table-wrap"><table id="oImportsTable"></table></div>
+          <div class="method"><span class="pill">Definicao</span> Taxa de sucesso operacional = assistencias concluidas / total de assistencias. Perdas = canceladas, frustradas, reagendadas e improdutivas. Dados financeiros foram mantidos fora deste painel.</div>
+        </section>
+      </div>
+    </div>
+
+    <div class="view" id="settingsView" hidden>
+      <div class="kpis">
+        <div class="kpi"><div class="label">Cache</div><div class="value" id="cfgCache">-</div><div class="note">CacheTools TTL 300s</div></div>
+        <div class="kpi"><div class="label">Importacao automatica</div><div class="value" id="cfgAutoImport">-</div><div class="note" id="cfgAutoImportNote">Status do monitor</div></div>
+        <div class="kpi"><div class="label">Dependencias</div><div class="value" id="cfgDeps">-</div><div class="note">Pacotes obrigatorios</div></div>
+      </div>
+      <div class="grid">
+        <section class="span-6">
+          <h2>Metas e SLA</h2>
+          <div class="upload" style="grid-template-columns: repeat(2, minmax(160px, 1fr));">
+            <div><label for="cfgDailyGoal">Meta diaria por analista</label><input id="cfgDailyGoal" type="number" min="1" /></div>
+            <div><label for="cfgSlaTarget">SLA em dias uteis</label><input id="cfgSlaTarget" type="number" min="1" /></div>
+            <div><label for="cfgLagWarning">Alerta de defasagem da base</label><input id="cfgLagWarning" type="number" min="1" /></div>
+            <div><label for="cfgAuthEnabled">Login ativo</label><select id="cfgAuthEnabled"><option value="false">Nao</option><option value="true">Sim</option></select></div>
+          </div>
+        </section>
+        <section class="span-6">
+          <h2>Score de eficiencia</h2>
+          <div class="upload" style="grid-template-columns: repeat(3, minmax(130px, 1fr));">
+            <div><label for="cfgClosedWeight">Peso fechadas</label><input id="cfgClosedWeight" type="number" step="0.1" /></div>
+            <div><label for="cfgSlaWeight">Peso SLA</label><input id="cfgSlaWeight" type="number" step="0.1" /></div>
+            <div><label for="cfgBacklogPenalty">Penalidade backlog</label><input id="cfgBacklogPenalty" type="number" step="0.1" /></div>
+          </div>
+        </section>
+        <section class="span-12">
+          <h2>Score de risco</h2>
+          <div class="upload" style="grid-template-columns: repeat(4, minmax(130px, 1fr));">
+            <div><label for="cfgRiskVolume">Peso volume</label><input id="cfgRiskVolume" type="number" step="0.05" /></div>
+            <div><label for="cfgRiskProcedencia">Peso procedencia</label><input id="cfgRiskProcedencia" type="number" step="0.05" /></div>
+            <div><label for="cfgRiskSla">Peso SLA estourado</label><input id="cfgRiskSla" type="number" step="0.05" /></div>
+            <div><label for="cfgRiskReincidencia">Peso reincidencia</label><input id="cfgRiskReincidencia" type="number" step="0.05" /></div>
+          </div>
+          <div class="status" id="cfgStatus">Configuracoes carregadas do config.json.</div>
+          <button id="saveConfig">Salvar configuracoes</button>
+        </section>
+        <section class="span-12">
+          <h2>Status da importacao automatica</h2>
+          <div class="table-wrap"><table id="cfgAutoTable"></table></div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="dashboard_fallback.js"></script>
+  <script>
+    const fmt = new Intl.NumberFormat('pt-BR');
+    const pct = value => `${(value * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
+    const el = id => document.getElementById(id);
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    let lastData = null;
+    let currentView = 'executive';
+    const viewLabels = {
+      executive: 'Executivo',
+      complaints: 'Reclamações',
+      productivity: 'Produtividade',
+      operation: 'Operação de Campo'
+    };
+
+    function setStatus(message) {
+      el('uploadStatus').innerHTML = message;
+    }
+
+    function showLogin(message = '') {
+      el('loginOverlay').classList.add('active');
+      if (message) el('loginStatus').innerHTML = message;
+    }
+
+    function hideLogin() {
+      el('loginOverlay').classList.remove('active');
+    }
+
+    function applyUserChrome(payload) {
+      const isAdmin = !payload.authEnabled || payload.user?.perfil === 'admin';
+      document.querySelectorAll('[data-view="settings"]').forEach(node => {
+        node.style.display = isAdmin ? '' : 'none';
+      });
+      el('upload').disabled = payload.authEnabled && !['admin', 'coordenador'].includes(payload.user?.perfil);
+    }
+
+    async function checkSession() {
+      const payload = await apiJson('/api/me', null);
+      if (payload.authEnabled && !payload.authenticated) {
+        showLogin('Sessao nao autenticada. Entre para continuar.');
+        return false;
+      }
+      hideLogin();
+      applyUserChrome(payload);
+      if (payload.user?.nome) {
+        el('topbarUpdated').textContent = `${payload.user.nome} · ${payload.user.perfil}`;
+      }
+      return true;
+    }
+
+    async function login() {
+      el('loginStatus').textContent = 'Validando acesso...';
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: el('loginEmail').value, senha: el('loginPassword').value })
+        });
+        const payload = await response.json();
+        if (!payload.ok) throw new Error(payload.error || 'Login invalido.');
+        hideLogin();
+        await loadFilters();
+        await loadActive();
+      } catch (error) {
+        el('loginStatus').innerHTML = `Nao foi possivel entrar: <strong>${esc(error.message)}</strong>`;
+      }
+    }
+
+    async function logout() {
+      await fetch('/api/logout', { method: 'POST' });
+      showLogin('Sessao encerrada.');
+    }
+
+    async function apiJson(path, fallbackKey) {
+      try {
+        if (location.protocol === 'file:') throw new Error('Modo arquivo');
+        const response = await fetch(path);
+        const text = await response.text();
+        let payload = {};
+        try {
+          payload = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          throw new Error('Resposta invalida do servidor');
+        }
+        if (!response.ok || payload.ok === false) {
+          if (response.status === 401) showLogin(payload.error || 'Sessao expirada.');
+          throw new Error(payload.error || `API indisponivel (${response.status})`);
+        }
+        return payload;
+      } catch (error) {
+        const fallback = window.__DASH_FALLBACK__ && window.__DASH_FALLBACK__[fallbackKey];
+        if (!fallback) {
+          setStatus(`Nao foi possivel carregar os dados: <strong>${esc(error.message)}</strong>.`);
+          throw error;
+        }
+        const generatedAt = window.__DASH_FALLBACK__?.data_geracao_fallback || 'data não informada';
+        setStatus(`<strong>Modo demonstração:</strong> estes dados são um retrato estático gerado em ${esc(generatedAt)} e podem estar desatualizados. Para importar novas planilhas e atualizar o banco, abra pelo arquivo Iniciar Dashboard.bat.`);
+        return fallback;
+      }
+    }
+
+    function fillSelect(id, values, label = 'Todos') {
+      const node = el(id);
+      const current = node.value;
+      node.innerHTML = `<option value="">${label}</option>` + (values || []).map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+      if ([...node.options].some(option => option.value === current)) node.value = current;
+    }
+
+    async function loadFilters() {
+      const filters = await apiJson('/api/filters', 'filters');
+      fillSelect('regiao', filters.regiao);
+      fillSelect('hub', filters.hub);
+      fillSelect('cliente', filters.cliente);
+      fillSelect('analista', filters.analista);
+      fillSelect('month', filters.months, 'Selecione');
+    }
+
+    function params() {
+      const search = new URLSearchParams();
+      for (const id of ['scope', 'period', 'month', 'start', 'end', 'regiao', 'hub', 'cliente', 'analista', 'cidade']) {
+        const value = el(id).value.trim();
+        if (value) search.set(id, value);
+      }
+      return search.toString();
+    }
+
+    function activeFilterLabel(id) {
+      const node = el(id);
+      if (!node || !node.value) return null;
+      const label = document.querySelector(`label[for="${id}"]`)?.textContent || id;
+      const value = node.tagName === 'SELECT' ? node.options[node.selectedIndex]?.textContent : node.value;
+      if (!value) return null;
+      if (id === 'scope' && node.value === 'procedentes') return null;
+      if (id === 'period' && node.value === 'all') return null;
+      return `${label}: ${value}`;
+    }
+
+    function updateActiveFilters() {
+      const labels = ['scope', 'period', 'month', 'start', 'end', 'regiao', 'hub', 'cliente', 'analista', 'cidade']
+        .map(activeFilterLabel)
+        .filter(Boolean);
+      el('activeFilters').innerHTML = '<span class="filter-chip-label">Filtros ativos</span>' +
+        (labels.length
+          ? labels.map(item => `<span class="filter-chip">${esc(item)}</span>`).join('')
+          : '<span class="filter-chip empty">Todo período</span>');
+    }
+
+    function setBadge(id, value, cls = '') {
+      const node = el(id);
+      if (!node) return;
+      node.textContent = value;
+      node.classList.remove('warn', 'critical');
+      if (cls) node.classList.add(cls);
+    }
+
+    function updateExecutiveChrome(data) {
+      if (!data?.summary || !data?.productivity || !data?.operation) return;
+      const score = mmsIndex(data.summary.kpis, data.productivity.kpis, data.operation.kpis);
+      const slaPct = data.productivity.kpis.slaPct || 0;
+      const successPct = data.operation.kpis.successPct || 0;
+      const procPct = data.summary.kpis.procedenciaPct || 0;
+      const scoreCls = score >= 80 ? '' : score >= 60 ? 'warn' : 'critical';
+      const slaCls = slaPct >= .75 ? '' : slaPct >= .5 ? 'warn' : 'critical';
+      el('topbarScore').innerHTML = `Indice <strong>${fmt.format(score)}/100</strong>`;
+      el('topbarScore').className = `topbar-pill ${scoreCls}`;
+      el('topbarSla').innerHTML = `SLA <strong>${pct(slaPct)}</strong>`;
+      el('topbarSla').className = `topbar-pill ${slaCls}`;
+      el('topbarUpdated').textContent = `${fmt.format(data.summary.kpis.total || 0)} reclamações`;
+      setBadge('badgeExecutive', score, scoreCls);
+      setBadge('badgeComplaints', fmt.format(data.summary.kpis.procedentes || 0), procPct > .65 ? 'critical' : procPct > .45 ? 'warn' : '');
+      setBadge('badgeProductivity', pct(slaPct), slaCls);
+      setBadge('badgeOperation', pct(successPct), successPct >= .8 ? '' : successPct >= .65 ? 'warn' : 'critical');
+    }
+
+    async function loadSummary() {
+      updateActiveFilters();
+      lastData = await apiJson(`/api/summary?${params()}`, 'summary');
+      render(lastData);
+    }
+
+    async function loadProductivity() {
+      updateActiveFilters();
+      lastData = await apiJson(`/api/productivity?${params()}`, 'productivity');
+      renderProductivity(lastData);
+    }
+
+    async function loadOperation() {
+      updateActiveFilters();
+      lastData = await apiJson(`/api/operation?${params()}`, 'operation');
+      renderOperation(lastData);
+    }
+
+    async function loadExecutive() {
+      updateActiveFilters();
+      const query = params();
+      const [summary, productivity, operation] = await Promise.all([
+        apiJson(`/api/summary?${query}`, 'summary'),
+        apiJson(`/api/productivity?${query}`, 'productivity'),
+        apiJson(`/api/operation?${query}`, 'operation')
+      ]);
+      const optional = await Promise.allSettled([
+        apiJson(`/api/alertas?${query}`, 'alertas'),
+        apiJson(`/api/insights?${query}`, 'insights'),
+        apiJson(`/api/prestadores?${query}`, 'prestadores')
+      ]);
+      const alerts = optional[0].status === 'fulfilled' ? optional[0].value : { alerts: [] };
+      const insights = optional[1].status === 'fulfilled' ? optional[1].value : { insights: [], cards: [] };
+      const providers = optional[2].status === 'fulfilled' ? optional[2].value : { providers: [] };
+      lastData = { summary, productivity, operation, alerts, insights, providers, mapa: null };
+      updateExecutiveChrome(lastData);
+      renderExecutive(lastData);
+      el('eGeoMap').innerHTML = '<div class="method">Carregando mapa geografico...</div>';
+      try {
+        const mapa = await apiJson(`/api/mapa?${query}`, 'mapa');
+        lastData.mapa = mapa;
+        renderGeoCoverage(mapa);
+        leafletBubbleMap('eGeoMap', mapa);
+        await loadGeoPendentes();
+      } catch (error) {
+        el('eGeoMap').innerHTML = `<div class="method">Nao foi possivel carregar o mapa agora: ${esc(error.message)}</div>`;
+      }
+    }
+
+    function loadActive() {
+      if (currentView === 'productivity') return loadProductivity();
+      if (currentView === 'operation') return loadOperation();
+      if (currentView === 'settings') return loadSettings();
+      if (currentView === 'executive') return loadExecutive();
+      return loadSummary();
+    }
+
+    function barChart(targetId, data, limit = 10) {
+      const top = (data || []).slice(0, limit);
+      const max = Math.max(1, ...top.map(d => d.value));
+      el(targetId).innerHTML = top.length ? top.map(d => `
+        <div class="bar-row" title="${esc(d.label)}: ${fmt.format(d.value)}">
+          <div class="bar-label">${esc(d.label)}</div>
+          <div class="bar-track"><div class="bar" style="width:${Math.max(3, d.value / max * 100)}%"></div></div>
+          <div class="bar-value">${fmt.format(d.value)}</div>
+        </div>`).join('') : '<div class="method">Sem dados para os filtros selecionados.</div>';
+    }
+
+    function lineChart(targetId, data, options = {}) {
+      const months = data || [];
+      if (!months.length) {
+        el(targetId).innerHTML = '<div class="method">Sem dados para os filtros selecionados.</div>';
+        return;
+      }
+      const showValueLabels = options.valueLabels !== false;
+      const maxTicks = options.maxTicks || 10;
+      const w = 720, h = 250, pad = { l: 48, r: 20, t: 20, b: 42 };
+      const max = Math.max(1, ...months.map(d => d.value));
+      const x = i => months.length === 1 ? pad.l + (w - pad.l - pad.r) / 2 : pad.l + i * (w - pad.l - pad.r) / (months.length - 1);
+      const y = v => h - pad.b - (v / max) * (h - pad.t - pad.b);
+      const points = months.map((d, i) => `${x(i)},${y(d.value)}`).join(' ');
+      const tickStep = Math.max(1, Math.ceil(months.length / maxTicks));
+      const ticks = months.map((d, i) => {
+        if (i % tickStep !== 0 && i !== months.length - 1) return '';
+        const label = String(d.label || '');
+        const shortLabel = label.length >= 10 ? `${label.slice(8,10)}/${label.slice(5,7)}` : `${label.slice(5,7)}/${label.slice(2,4)}`;
+        return `<text x="${x(i)}" y="${h - 16}" text-anchor="middle" font-size="11" fill="#667085">${esc(shortLabel)}</text>`;
+      }).join('');
+      const dots = months.map((d, i) => `<circle class="point" cx="${x(i)}" cy="${y(d.value)}" r="5"><title>${esc(d.label)}: ${fmt.format(d.value)}</title></circle>`).join('');
+      const labelStep = Math.max(1, Math.ceil(months.length / 16));
+      const labels = showValueLabels ? months.map((d, i) => {
+        if (months.length > 24 && i % labelStep !== 0 && i !== months.length - 1) return '';
+        return `<text x="${x(i)}" y="${y(d.value)-10}" text-anchor="middle" font-size="11" fill="#344054">${fmt.format(d.value)}</text>`;
+      }).join('') : '';
+      el(targetId).innerHTML = `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Evolução mensal">
+        <line class="axis" x1="${pad.l}" y1="${h-pad.b}" x2="${w-pad.r}" y2="${h-pad.b}"></line>
+        <line class="axis" x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${h-pad.b}"></line>
+        <text x="4" y="${pad.t + 4}" font-size="11" fill="#667085">${fmt.format(max)}</text>
+        <polyline class="line" points="${points}"></polyline>
+        ${dots}${labels}${ticks}
+      </svg>`;
+    }
+
+    function paretoChart(targetId, data, limit = 12) {
+      const rows = (data || []).slice(0, limit);
+      const total = rows.reduce((sum, row) => sum + (row.value || 0), 0);
+      let running = 0;
+      const max = Math.max(1, ...rows.map(row => row.value || 0));
+      el(targetId).innerHTML = rows.length ? rows.map(row => {
+        running += row.value || 0;
+        const accumulated = total ? running / total : 0;
+        return `<div class="bar-row" title="${esc(row.label)}: ${fmt.format(row.value || 0)} | acumulado ${pct(accumulated)}">
+          <div class="bar-label">${esc(row.label)}</div>
+          <div class="bar-track"><div class="bar" style="width:${Math.max(3, (row.value || 0) / max * 100)}%"></div></div>
+          <div class="bar-value">${fmt.format(row.value || 0)} / ${pct(accumulated)}</div>
+        </div>`;
+      }).join('') : '<div class="method">Sem dados para os filtros selecionados.</div>';
+    }
+
+    function heatmapChart(targetId, rows) {
+      const data = rows || [];
+      if (!data.length) {
+        el(targetId).innerHTML = '<div class="method">Sem dados para os filtros selecionados.</div>';
+        return;
+      }
+      const topLabels = (field, maxItems) => Object.entries(data.reduce((acc, row) => {
+        acc[row[field]] = (acc[row[field]] || 0) + (row.value || 0);
+        return acc;
+      }, {})).sort((a, b) => b[1] - a[1]).slice(0, maxItems).map(item => item[0]);
+      const regions = topLabels('regiao', 8);
+      const reasons = topLabels('motivo', 10);
+      const max = Math.max(1, ...data.map(row => row.value || 0));
+      const valueOf = (region, reason) => {
+        const item = data.find(row => row.regiao === region && row.motivo === reason);
+        return item ? item.value || 0 : 0;
+      };
+      const header = ['<div class="heat-cell"><strong>Regiao</strong></div>', ...reasons.map(reason => `<div class="heat-cell"><strong>${esc(String(reason).slice(0, 18))}</strong></div>`)].join('');
+      const body = regions.map(region => [
+        `<div class="heat-cell"><strong>${esc(region)}</strong></div>`,
+        ...reasons.map(reason => {
+          const value = valueOf(region, reason);
+          const intensity = value / max;
+          const color = intensity > .66 ? '#d92d20' : intensity > .33 ? '#FF8C28' : intensity > 0 ? '#35A74A' : '#eef2f7';
+          return `<div class="heat-cell" style="background:${color};color:${intensity > .33 ? '#fff' : '#111827'}" title="${esc(region)} | ${esc(reason)}: ${fmt.format(value)}">${fmt.format(value)}</div>`;
+        })
+      ].join('')).join('');
+      el(targetId).innerHTML = `<div class="heatmap" style="grid-template-columns: repeat(${reasons.length + 1}, minmax(82px, 1fr));">${header}${body}</div>`;
+    }
+
+    function scatterChart(targetId, rows) {
+      const data = (rows || []).filter(row => row.fechadas > 0);
+      if (!data.length) {
+        el(targetId).innerHTML = '<div class="method">Sem dados para os filtros selecionados.</div>';
+        return;
+      }
+      const maxX = Math.max(1, ...data.map(row => row.fechadas || 0));
+      const dots = data.map(row => {
+        const x = Math.min(98, Math.max(2, (row.fechadas || 0) / maxX * 96));
+        const y = Math.min(98, Math.max(2, row.taxa_sla || 0));
+        return `<span class="scatter-dot" style="left:${x}%;bottom:${y}%;" title="${esc(row.analista)} | fechadas: ${fmt.format(row.fechadas || 0)} | SLA: ${fmt.format(row.taxa_sla || 0)}%"></span>`;
+      }).join('');
+      el(targetId).innerHTML = `<div class="method">Eixo X: volume fechado. Eixo Y: percentual dentro do SLA.</div><div class="scatter">${dots}</div>`;
+    }
+
+    function table(id, headers, rows) {
+      const node = el(id);
+      const allRows = rows || [];
+      const pageSize = 15;
+      const parent = node.closest('.table-wrap');
+      let tools = parent.previousElementSibling;
+      if (!tools || !tools.classList || !tools.classList.contains('table-tools')) {
+        tools = document.createElement('div');
+        tools.className = 'table-tools';
+        parent.parentNode.insertBefore(tools, parent);
+      }
+      const state = node._tableState || { page: 1, query: '' };
+      const filtered = allRows.filter(row => headers.some(h => String(row[h.key] ?? '').toLowerCase().includes(state.query.toLowerCase())));
+      const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+      state.page = Math.min(Math.max(1, state.page), pages);
+      node._tableState = state;
+      const pageRows = filtered.slice((state.page - 1) * pageSize, state.page * pageSize);
+      tools.innerHTML = `
+        <input type="search" value="${esc(state.query)}" placeholder="Buscar na tabela" aria-label="Buscar na tabela ${esc(id)}" />
+        <div class="table-page">
+          <button type="button" data-action="prev">Anterior</button>
+          <span>${fmt.format(filtered.length)} registros | pagina ${fmt.format(state.page)} de ${fmt.format(pages)}</span>
+          <button type="button" data-action="next">Proxima</button>
+        </div>`;
+      tools.querySelector('input').addEventListener('input', event => {
+        state.query = event.target.value;
+        state.page = 1;
+        table(id, headers, allRows);
+      });
+      tools.querySelector('[data-action="prev"]').addEventListener('click', () => {
+        state.page -= 1;
+        table(id, headers, allRows);
+      });
+      tools.querySelector('[data-action="next"]').addEventListener('click', () => {
+        state.page += 1;
+        table(id, headers, allRows);
+      });
+      const head = `<thead><tr>${headers.map(h => `<th class="${h.num ? 'num' : ''}">${esc(h.label)}</th>`).join('')}</tr></thead>`;
+      const body = pageRows.length ? `<tbody>${pageRows.map(row => `<tr>${headers.map(h => {
+        const content = h.render ? h.render(row) : (h.num ? fmt.format(row[h.key] || 0) : esc(row[h.key]));
+        return `<td class="${h.num ? 'num' : ''}">${content}</td>`;
+      }).join('')}</tr>`).join('')}</tbody>` : '<tbody><tr><td>Sem dados para os filtros selecionados.</td></tr></tbody>';
+      node.innerHTML = head + body;
+    }
+
+    function healthClass(value, warnAt, criticalAt, higherIsWorse = false) {
+      const score = value || 0;
+      if (higherIsWorse) {
+        if (score >= criticalAt) return 'critical';
+        if (score >= warnAt) return 'warn';
+        return '';
+      }
+      if (score <= criticalAt) return 'critical';
+      if (score <= warnAt) return 'warn';
+      return '';
+    }
+
+    function setKpiStatus(id, status, label) {
+      const node = el(id).closest('.kpi');
+      node.classList.remove('good', 'warn', 'critical');
+      node.classList.add(status);
+      const note = node.querySelector('.note');
+      if (note && !note.querySelector('.status-dot')) note.innerHTML = `<span class="status-dot"></span>${note.innerHTML}`;
+      if (note && label) note.title = label;
+    }
+
+    function mmsIndex(summary, productivity, operation) {
+      const sla = Math.max(0, Math.min(1, productivity.slaPct || 0));
+      const procedencia = Math.max(0, Math.min(1, 1 - (summary.procedenciaPct || 0)));
+      const productivityScore = Math.max(0, Math.min(1, productivity.goalPct || 0));
+      const operationScore = Math.max(0, Math.min(1, operation.successPct || 0));
+      return Math.round((sla * .30 + procedencia * .25 + productivityScore * .20 + operationScore * .25) * 100);
+    }
+
+    function geoMap(targetId, summary, operation) {
+      const regRows = summary.tables.rateRegion || [];
+      const opRows = operation.tables.regionalPerformance || [];
+      const names = [...new Set([...regRows.map(row => row.label), ...opRows.map(row => row.label)])].slice(0, 10);
+      if (!names.length) {
+        el(targetId).innerHTML = '<div class="method">Sem dados regionais para os filtros selecionados.</div>';
+        return;
+      }
+      el(targetId).innerHTML = `<div class="geo-grid">${names.map(name => {
+        const r = regRows.find(row => row.label === name) || {};
+        const o = opRows.find(row => row.label === name) || {};
+        const taxa = (r.taxa || 0) / 100;
+        const perda = (o.taxa_perda || 0) / 100;
+        const cls = taxa > .65 || perda > .35 ? 'critical' : taxa > .45 || perda > .20 ? 'warn' : '';
+        return `<div class="geo-card ${cls}" title="${esc(name)}">
+          <strong>${esc(name)}</strong>
+          <span>Reclamacoes: ${fmt.format(r.total || 0)}</span>
+          <span>Procedentes: ${fmt.format(r.procedentes || 0)} (${fmt.format(r.taxa || 0)}%)</span>
+          <span>Perda operacional: ${fmt.format(o.taxa_perda || 0)}%</span>
+        </div>`;
+      }).join('')}</div>`;
+    }
+
+    let leafletMap = null;
+    let leafletLayers = null;
+
+    function mapColor(point, layerName) {
+      if (layerName === 'Reclamacoes') {
+        const value = point.reclamacoes || 0;
+        if (value > 15) return '#d92d20';
+        if (value > 5) return '#FF8C28';
+        return '#35A74A';
+      }
+      if (layerName === 'Procedencias') {
+        const taxa = point.taxa_procedencia || 0;
+        if (taxa >= 65) return '#d92d20';
+        if (taxa >= 45) return '#FF8C28';
+        return '#35A74A';
+      }
+      if (layerName === 'Taxa de sucesso operacional') {
+        const taxa = point.taxa_sucesso == null ? 100 : point.taxa_sucesso;
+        if (taxa < 80) return '#d92d20';
+        if (taxa < 90) return '#FF8C28';
+        return '#35A74A';
+      }
+      if (point.status === 'critico') return '#d92d20';
+      if (point.status === 'atencao') return '#FF8C28';
+      return '#35A74A';
+    }
+
+    function layerValue(point, layerName) {
+      if (layerName === 'Reclamacoes') return point.reclamacoes || 0;
+      if (layerName === 'Procedencias') return point.procedencias || 0;
+      if (layerName === 'Frustracoes') return point.frustracoes || 0;
+      if (layerName === 'Perdas operacionais') return point.perdas || 0;
+      if (layerName === 'Taxa de sucesso operacional') return point.taxa_sucesso || 0;
+      return 0;
+    }
+
+    function popupHtml(point) {
+      return `<strong>${esc(point.cidade)} / ${esc(point.uf)}</strong><br>
+        Reclamacoes: ${fmt.format(point.reclamacoes || 0)}<br>
+        Procedentes: ${fmt.format(point.procedencias || 0)} (${fmt.format(point.taxa_procedencia || 0)}%)<br>
+        Frustracoes: ${fmt.format(point.frustracoes || 0)}<br>
+        Perdas operacionais: ${fmt.format(point.perdas || 0)} (${fmt.format(point.taxa_perda || 0)}%)<br>
+        Taxa de sucesso: ${point.taxa_sucesso == null ? '-' : fmt.format(point.taxa_sucesso)}%<br>
+        Principal HUB: ${esc(point.principal_hub || '-')}<br>
+        Principal cliente: ${esc(point.principal_cliente || '-')}<br>
+        Principal motivo: ${esc(point.principal_motivo || '-')}<br>
+        Principal motivo operacional: ${esc(point.principal_motivo_operacional || '-')}<br>
+        Status: ${esc(point.status)}`;
+    }
+
+    function projectedPoint(point) {
+      const minLon = -74, maxLon = -34, minLat = -34, maxLat = 6;
+      const x = ((point.lon - minLon) / (maxLon - minLon)) * 760 + 30;
+      const y = ((maxLat - point.lat) / (maxLat - minLat)) * 460 + 30;
+      return { x, y };
+    }
+
+    function svgBubbleMap(targetId, mapPayload, activeLayer = 'Reclamacoes') {
+      const points = mapPayload?.points || [];
+      const node = el(targetId);
+      if (!points.length) {
+        geoMap(targetId, lastData.summary, lastData.operation);
+        return;
+      }
+      const layers = ['Reclamacoes', 'Procedencias', 'Frustracoes', 'Perdas operacionais', 'Taxa de sucesso operacional'];
+      const maxValue = Math.max(1, ...points.map(point => layerValue(point, activeLayer)));
+      const circles = points.map(point => {
+        const value = layerValue(point, activeLayer);
+        if (!value) return '';
+        const pos = projectedPoint(point);
+        const radius = Math.max(8, Math.min(30, 8 + Math.sqrt(value / maxValue) * 22));
+        return `<circle cx="${pos.x}" cy="${pos.y}" r="${radius}" fill="${mapColor(point, activeLayer)}" fill-opacity="0.58" stroke="#fff" stroke-width="1">
+          <title>${esc(point.cidade)} / ${esc(point.uf)}
+${activeLayer}: ${fmt.format(value)}
+Reclamacoes: ${fmt.format(point.reclamacoes || 0)}
+Procedencias: ${fmt.format(point.procedencias || 0)}
+Frustracoes: ${fmt.format(point.frustracoes || 0)}
+Perdas: ${fmt.format(point.perdas || 0)}
+Taxa sucesso: ${point.taxa_sucesso == null ? '-' : fmt.format(point.taxa_sucesso)}%
+Status: ${esc(point.status)}</title>
+        </circle>`;
+      }).join('');
+      node.innerHTML = `<div class="svg-map-wrap">
+        <div class="map-tabs">${layers.map(layer => `<button class="map-tab ${layer === activeLayer ? 'active' : ''}" data-layer="${esc(layer)}">${esc(layer)}</button>`).join('')}<div class="method"><span class="pill">Verde</span> Saudavel <span class="pill">Amarelo</span> Atencao <span class="pill">Vermelho</span> Critico</div></div>
+        <svg class="svg-map" viewBox="0 0 820 520" role="img" aria-label="Mapa geografico MMS">
+          <rect x="30" y="30" width="760" height="460" rx="18" fill="#f8fbff" stroke="#d8dbee"></rect>
+          <text x="52" y="64" fill="#2B3594" font-size="18" font-weight="700">Brasil - ${esc(activeLayer)}</text>
+          <text x="52" y="88" fill="#687089" font-size="12">Bolhas proporcionais ao volume. Verde saudavel, amarelo atencao, vermelho critico.</text>
+          ${circles}
+        </svg>
+      </div>`;
+      node.querySelectorAll('.map-tab').forEach(button => {
+        button.addEventListener('click', () => svgBubbleMap(targetId, mapPayload, button.dataset.layer));
+      });
+    }
+
+    function leafletBubbleMap(targetId, mapPayload) {
+      const points = mapPayload?.points || [];
+      const node = el(targetId);
+      if (!points.length || !window.L) {
+        svgBubbleMap(targetId, mapPayload);
+        return;
+      }
+      try {
+        node.innerHTML = '<div id="leafletMmsMap" class="leaflet-map"></div>';
+        if (leafletMap) {
+          leafletMap.remove();
+          leafletMap = null;
+        }
+        leafletMap = L.map('leafletMmsMap', { scrollWheelZoom: false }).setView([-14.2, -51.9], 4);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 18,
+          attribution: '&copy; OpenStreetMap'
+        }).addTo(leafletMap);
+        const layerNames = ['Reclamacoes', 'Procedencias', 'Frustracoes', 'Perdas operacionais', 'Taxa de sucesso operacional'];
+        leafletLayers = {};
+        for (const layerName of layerNames) {
+          const maxValue = Math.max(1, ...points.map(point => layerValue(point, layerName)));
+          const group = L.layerGroup();
+          points.forEach(point => {
+            const value = layerValue(point, layerName);
+            if (!value) return;
+            const radius = Math.max(8, Math.min(30, 8 + Math.sqrt(value / maxValue) * 22));
+            L.circleMarker([point.lat, point.lon], {
+              radius,
+              color: mapColor(point, layerName),
+              fillColor: mapColor(point, layerName),
+              fillOpacity: 0.55,
+              weight: 1
+            }).bindPopup(popupHtml(point)).addTo(group);
+          });
+          leafletLayers[layerName] = group;
+        }
+        leafletLayers.Reclamacoes.addTo(leafletMap);
+        L.control.layers({}, leafletLayers, { collapsed: false }).addTo(leafletMap);
+        const bounds = points.map(point => [point.lat, point.lon]);
+        if (!bounds.length) {
+          leafletMap.setView([-14.2350, -51.9253], 4);
+        } else if (bounds.length === 1) {
+          leafletMap.setView(bounds[0], 11);
+        } else {
+          const padding = bounds.length <= 10 ? [40, 40] : bounds.length <= 50 ? [30, 30] : [20, 20];
+          leafletMap.fitBounds(bounds, { padding });
+        }
+        setTimeout(() => leafletMap && leafletMap.invalidateSize(), 120);
+      } catch (error) {
+        svgBubbleMap(targetId, mapPayload);
+      }
+    }
+
+    function addDrillClicks() {
+      document.querySelectorAll('#rateRegionTable tbody tr').forEach(row => {
+        row.style.cursor = 'pointer';
+        row.title = 'Clique para filtrar esta regiao';
+        row.addEventListener('click', () => {
+          const value = row.cells[0]?.textContent || '';
+          if (value) { el('regiao').value = value; loadActive(); }
+        });
+      });
+      document.querySelectorAll('#rateHubTable tbody tr, #oHubTable tbody tr').forEach(row => {
+        row.style.cursor = 'pointer';
+        row.title = 'Clique para filtrar este HUB';
+        row.addEventListener('click', () => {
+          const value = row.cells[0]?.textContent || '';
+          if (value) { el('hub').value = value; loadActive(); }
+        });
+      });
+      document.querySelectorAll('#providerCriticalTable tbody tr, #oCriticalResourceTable tbody tr').forEach(row => {
+        row.title = 'Use a busca da tabela para aprofundar por prestador/montador';
+      });
+    }
+
+    async function showProviderDetail(providerName) {
+      const detailBox = el('providerDetail');
+      detailBox.classList.add('active');
+      detailBox.innerHTML = `<strong>${esc(providerName)}</strong><div class="method">Carregando detalhe do prestador...</div>`;
+      try {
+        let payload;
+        if (location.protocol === 'file:') {
+          payload = window.__DASH_FALLBACK__?.prestadores || { providers: [] };
+          payload.detail = null;
+        } else {
+          payload = await apiJson(`/api/prestadores?${params()}&prestador=${encodeURIComponent(providerName)}`, 'prestadores');
+        }
+        const row = (payload.providers || []).find(item => item.prestador === providerName) || {};
+        const detail = payload.detail;
+        detailBox.innerHTML = `
+          <h2>${esc(providerName)}</h2>
+          <div class="health">
+            <div class="health-card"><strong>HUB</strong><div>${esc(row.hub || '-')}</div><span>${esc(row.regiao || '-')}</span></div>
+            <div class="health-card ${row.score_risco >= 70 ? 'critical' : row.score_risco >= 40 ? 'warn' : ''}"><strong>Score de risco</strong><div>${fmt.format(row.score_risco || 0)}</div><span>${esc(row.status_risco || '-')}</span></div>
+            <div class="health-card"><strong>Reclamacoes</strong><div>${fmt.format(row.reclamacoes || 0)}</div><span>${fmt.format(row.procedentes || 0)} procedentes</span></div>
+            <div class="health-card"><strong>SLA</strong><div>${fmt.format(row.taxa_sla || 0)}%</div><span>Media ${fmt.format(row.media_dias_uteis || 0)} dias uteis</span></div>
+          </div>
+          ${detail ? `<div class="grid"><section class="span-6"><h2>Evolucao mensal</h2><div id="providerMonthlyChart" class="chart"></div></section><section class="span-6"><h2>Cidades atendidas</h2><div id="providerCityChart" class="chart"></div></section><section class="span-12"><h2>Registros recentes</h2><div class="table-wrap"><table id="providerRecordTable"></table></div></section></div>` : '<div class="method">Detalhe completo disponivel quando aberto pelo Iniciar Dashboard.bat.</div>'}
+        `;
+        if (detail) {
+          lineChart('providerMonthlyChart', (detail.monthly || []).map(item => ({ label: item.label, value: item.procedentes || 0 })));
+          barChart('providerCityChart', detail.cities || [], 12);
+          table('providerRecordTable', [
+            { key: 'data_reclamacao', label: 'Abertura' },
+            { key: 'dt_fechamento', label: 'Fechamento' },
+            { key: 'cliente', label: 'Cliente' },
+            { key: 'cidade', label: 'Cidade' },
+            { key: 'validacao', label: 'Validacao' },
+            { key: 'motivo', label: 'Motivo' },
+            { key: 'dias_uteis_fechamento', label: 'Dias uteis', num: true },
+            { key: 'sla_ok', label: 'SLA ok', num: true }
+          ], detail.records || []);
+        }
+      } catch (error) {
+        detailBox.innerHTML = `<strong>${esc(providerName)}</strong><div class="method">Nao foi possivel carregar o detalhe: ${esc(error.message)}</div>`;
+      }
+    }
+
+    function attachProviderClicks() {
+      document.querySelectorAll('#providerRiskTable tbody tr').forEach(row => {
+        row.style.cursor = 'pointer';
+        row.title = 'Clique para abrir a visao individual do prestador';
+        row.addEventListener('click', () => {
+          const value = row.cells[0]?.textContent || '';
+          if (value) showProviderDetail(value);
+        });
+      });
+    }
+
+    function renderGeoCoverage(mapPayload) {
+      const geo = mapPayload?.geoCoverage || {};
+      const geoCoverage = Number(geo.coveragePct ?? mapPayload?.coveragePct ?? 100);
+      const geoWarn = !!(geo.warning || mapPayload?.coverageWarning);
+      el('geoCoverageCards').innerHTML = [
+        { title: 'Cidades cadastradas', value: fmt.format(geo.registeredCities ?? mapPayload?.registeredCities ?? 0), note: 'Cobertura da tabela geocidades', cls: '' },
+        { title: 'Cidades mapeadas', value: fmt.format(geo.mappedCities ?? mapPayload?.mappedCities ?? 0), note: 'Com latitude e longitude', cls: geoWarn ? 'warn' : '' },
+        { title: 'Sem coordenadas', value: fmt.format(geo.missingCoordinates ?? mapPayload?.missingCoordinates ?? 0), note: 'Ja cadastradas em geocidades', cls: (geo.missingCoordinates || mapPayload?.missingCoordinates) ? 'warn' : '' },
+        { title: 'Cobertura geografica', value: `${fmt.format(geoCoverage)}%`, note: `Meta minima: ${fmt.format(geo.targetPct || 95)}%`, cls: geoWarn ? 'critical' : '' }
+      ].map(card => `<div class="health-card ${card.cls}"><strong>${esc(card.title)}</strong><div>${esc(card.value)}</div><span>${esc(card.note)}</span></div>`).join('');
+      el('geoCoverageWarning').innerHTML = geoWarn
+        ? '<span class="pill">Atenção</span> Cobertura geografica abaixo de 95%. Complete as coordenadas pendentes na tabela geocidades.'
+        : '<span class="pill">OK</span> Cobertura geografica dentro da meta.';
+    }
+
+    async function loadGeoPendentes() {
+      const payload = await apiJson('/api/geocidades/pendentes', 'geocidadesPendentes');
+      table('eMissingCitiesTable', [
+        { key: 'cidade', label: 'Cidade' },
+        { key: 'uf', label: 'UF' },
+        { key: 'uf_original', label: 'UF original' },
+        { key: 'origem', label: 'Origem' },
+        { key: 'ocorrencias', label: 'Ocorrencias', num: true },
+        { key: 'reclamacoes', label: 'Reclamacoes', num: true },
+        { key: 'procedentes', label: 'Procedentes', num: true },
+        { key: 'assistencias', label: 'Assistencias', num: true },
+        { key: 'acao', label: 'Acao', render: row => `<button type="button" data-geo-edit="${esc(row.cidade)}" data-geo-uf="${esc(row.uf)}">Editar</button> <button type="button" class="secondary" data-geo-ignore="${esc(row.cidade)}" data-geo-uf="${esc(row.uf)}">Ignorar</button>` }
+      ], payload.pendentes || []);
+      attachGeoActions();
+    }
+
+    function openGeoModal(cidade, uf) {
+      el('geoCidade').value = cidade || '';
+      el('geoUf').value = uf || '';
+      el('geoLat').value = '';
+      el('geoLon').value = '';
+      el('geoFonte').value = 'manual';
+      el('geoModalStatus').textContent = '';
+      el('geoModal').classList.add('active');
+    }
+
+    function closeGeoModal() {
+      el('geoModal').classList.remove('active');
+    }
+
+    function attachGeoActions() {
+      document.querySelectorAll('[data-geo-edit]').forEach(button => {
+        button.addEventListener('click', () => openGeoModal(button.dataset.geoEdit, button.dataset.geoUf));
+      });
+      document.querySelectorAll('[data-geo-ignore]').forEach(button => {
+        button.addEventListener('click', async () => {
+          try {
+            const response = await fetch('/api/geocidades/ignorar', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ cidade: button.dataset.geoIgnore, uf: button.dataset.geoUf })
+            });
+            const payload = await response.json();
+            if (!payload.ok) throw new Error(payload.error || 'Falha ao ignorar cidade.');
+            await loadGeoPendentes();
+            setStatus('Cidade removida da lista de pendencias.');
+          } catch (error) {
+            setStatus(`Nao foi possivel ignorar: <strong>${esc(error.message)}</strong>`);
+          }
+        });
+      });
+    }
+
+    async function saveGeoCoordinate() {
+      el('geoModalStatus').textContent = 'Salvando coordenada...';
+      try {
+        const response = await fetch('/api/geocidades/salvar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cidade: el('geoCidade').value,
+            uf: el('geoUf').value,
+            lat: el('geoLat').value,
+            lon: el('geoLon').value,
+            fonte: el('geoFonte').value
+          })
+        });
+        const payload = await response.json();
+        if (!payload.ok) throw new Error(payload.error || 'Falha ao salvar coordenada.');
+        closeGeoModal();
+        await loadActive();
+        setStatus('Coordenada salva e mapa atualizado.');
+      } catch (error) {
+        el('geoModalStatus').innerHTML = `Nao foi possivel salvar: <strong>${esc(error.message)}</strong>`;
+      }
+    }
+
+    async function updateGeocidades() {
+      if (location.protocol === 'file:') {
+        setStatus('Para atualizar geocidades, abra o painel pelo arquivo Iniciar Dashboard.bat.');
+        return;
+      }
+      setStatus('Atualizando geocidades e recalculando pendencias...');
+      try {
+        const response = await fetch('/api/geocidades/atualizar', { method: 'POST' });
+        const payload = await response.json();
+        if (!payload.ok) throw new Error(payload.error || 'Falha ao atualizar geocidades.');
+        setStatus(`Geocidades atualizadas: ${fmt.format(payload.processadas || 0)} processadas, ${fmt.format(payload.mapeadas || 0)} mapeadas, ${fmt.format(payload.pendentes || 0)} pendentes. Cobertura: ${fmt.format((payload.cobertura || 0) * 100)}%.`);
+        await loadActive();
+      } catch (error) {
+        setStatus(`Nao foi possivel atualizar geocidades: <strong>${esc(error.message)}</strong>`);
+      }
+    }
+
+    function renderExecutive(data) {
+      const s = data.summary.kpis;
+      const p = data.productivity.kpis;
+      const o = data.operation.kpis;
+      const score = mmsIndex(s, p, o);
+      const healthStatus = score >= 80 ? 'Saudavel' : score >= 60 ? 'Atencao' : 'Critico';
+      el('eMmsIndex').textContent = `${fmt.format(score)}/100`;
+      el('eMmsIndexNote').textContent = 'SLA, procedencia, produtividade e sucesso operacional';
+      el('eHealth').textContent = healthStatus;
+      el('eHealthNote').textContent = `Base: ${fmt.format(s.total || 0)} reclamacoes e ${fmt.format(o.total || 0)} assistencias`;
+      el('eProcPct').textContent = pct(s.procedenciaPct || 0);
+      el('eProcNote').textContent = `${fmt.format(s.procedentes || 0)} procedentes de ${fmt.format(s.total || 0)}`;
+      el('eSlaPct').textContent = pct(p.slaPct || 0);
+      el('eSuccessPct').textContent = pct(o.successPct || 0);
+      el('eLossPct').textContent = pct(o.lossPct || 0);
+      setKpiStatus('eMmsIndex', score >= 80 ? 'good' : score >= 60 ? 'warn' : 'critical', healthStatus);
+      setKpiStatus('eHealth', score >= 80 ? 'good' : score >= 60 ? 'warn' : 'critical', healthStatus);
+      setKpiStatus('eProcPct', (s.procedenciaPct || 0) <= .45 ? 'good' : (s.procedenciaPct || 0) <= .65 ? 'warn' : 'critical', 'Procedencia menor e melhor');
+      setKpiStatus('eSlaPct', (p.slaPct || 0) >= .75 ? 'good' : (p.slaPct || 0) >= .5 ? 'warn' : 'critical', 'SLA maior e melhor');
+      setKpiStatus('eSuccessPct', (o.successPct || 0) >= .8 ? 'good' : (o.successPct || 0) >= .65 ? 'warn' : 'critical', 'Sucesso maior e melhor');
+      setKpiStatus('eLossPct', (o.lossPct || 0) <= .15 ? 'good' : (o.lossPct || 0) <= .30 ? 'warn' : 'critical', 'Perda menor e melhor');
+
+      const cards = [
+        { title: 'Qualidade SAC', value: `Procedencia ${pct(s.procedenciaPct || 0)}`, note: `${fmt.format(s.improcedentes || 0)} improcedentes e ${fmt.format(s.semStatus || 0)} sem status`, cls: healthClass(s.procedenciaPct || 0, 0.5, 0.7, true) },
+        { title: 'SLA SAC', value: `${pct(p.slaPct || 0)} no prazo`, note: `Meta: fechar em ate ${fmt.format(p.slaTarget || 5)} dias uteis`, cls: healthClass(p.slaPct || 0, 0.7, 0.5, false) },
+        { title: 'Produtividade', value: `${pct(p.goalPct || 0)} da meta`, note: `Meta diaria: ${fmt.format(p.dailyGoal || 10)} fechadas por analista`, cls: healthClass(p.goalPct || 0, 0.8, 0.5, false) },
+        { title: 'Operacao de campo', value: `${pct(o.successPct || 0)} sucesso`, note: `${fmt.format(o.perdas || 0)} perdas operacionais`, cls: healthClass(o.successPct || 0, 0.75, 0.6, false) }
+      ];
+      el('eHealthCards').innerHTML = cards.map(card => `<div class="health-card ${card.cls}"><strong>${esc(card.title)}</strong><div>${esc(card.value)}</div><span>${esc(card.note)}</span></div>`).join('');
+
+      const alerts = [
+        `Indice MMS consolidado: <strong>${fmt.format(score)}/100</strong>. ${score >= 80 ? 'Operacao saudavel no recorte.' : score >= 60 ? 'Operacao em atencao, com prioridade para SLA e perdas.' : 'Operacao critica, recomenda acao imediata.'}`,
+        `SLA SAC mede dias uteis entre abertura e fechamento: <strong>${pct(p.slaPct || 0)}</strong> dentro da meta de ate <strong>${fmt.format(p.slaTarget || 5)}</strong> dias uteis.`,
+        `Taxa de procedencia atual: <strong>${pct(s.procedenciaPct || 0)}</strong>. Priorize motivos e HUBs com maior volume procedente.`,
+        `Sucesso operacional: <strong>${pct(o.successPct || 0)}</strong>; perda operacional: <strong>${pct(o.lossPct || 0)}</strong>.`,
+        o.worstHub ? `HUB operacional critico: <strong>${esc(o.worstHub.label)}</strong>, com <strong>${fmt.format(o.worstHub.taxa_perda || 0)}%</strong> de perda.` : 'Sem HUB operacional critico no recorte.',
+        p.leadAnalyst ? `Maior volume SAC: <strong>${esc(p.leadAnalyst.label)}</strong>, com <strong>${fmt.format(p.leadAnalyst.value || 0)}</strong> reclamacoes tratadas.` : 'Sem analista destacado no recorte.',
+        data.summary.tables.providerCritical?.[0] ? `Prestador critico: <strong>${esc(data.summary.tables.providerCritical[0].prestador)}</strong>, score <strong>${fmt.format(data.summary.tables.providerCritical[0].score || 0)}</strong>.` : 'Sem prestador critico no recorte.'
+      ];
+      const insightCards = (data.insights?.cards || []).map(item => `
+        <span class="insight-kind">${esc(item.tipo || 'Insight')} · ${esc(item.impacto || 'Medio')}</span>
+        <strong>${esc(item.titulo || '')}</strong><br>
+        ${esc(item.descricao || '')}
+        <div class="method">${esc(item.acao || '')}</div>
+      `);
+      const autoInsights = insightCards.length ? insightCards : (data.insights?.insights || []).map(item => esc(item));
+      el('eAlerts').innerHTML = [...alerts, ...autoInsights].slice(0, 10).map(item => `<li>${item}</li>`).join('');
+      el('alertCenter').innerHTML = (data.alerts?.alerts || []).map(item => `
+        <div class="alert-row ${esc(item.severity)}">
+          <span class="severity ${esc(item.severity)}">${esc(item.severity)}</span>
+          <div class="alert-body">
+            <div class="alert-title">${esc(item.titulo || item.area || 'Alerta')}</div>
+            <div>${esc(item.message || item.descricao || '')}</div>
+            <div class="alert-meta">
+              <span>Area: ${esc(item.area || '-')}</span>
+              <span>Prioridade: ${fmt.format(item.prioridade || 0)}</span>
+              ${item.driver ? `<span>Driver: ${esc(item.driver)}</span>` : ''}
+            </div>
+            <div class="alert-action"><strong>Acao:</strong> ${esc(item.acao || item.recomendacao || 'Acompanhar indicador.')}</div>
+          </div>
+        </div>`).join('');
+
+      lineChart('eTrendChart', data.summary.charts.monthly, { valueLabels: true, maxTicks: 8 });
+      barChart('eReasonChart', data.summary.charts.motivo, 10);
+      barChart('eHubComplaintChart', data.summary.charts.hub, 10);
+      barChart('eHubOperationChart', data.operation.charts.hub, 10);
+      renderGeoCoverage(data.mapa);
+      leafletBubbleMap('eGeoMap', data.mapa);
+      table('eMissingCitiesTable', [
+        { key: 'cidade', label: 'Cidade' },
+        { key: 'uf', label: 'UF' },
+        { key: 'uf_original', label: 'UF original' },
+        { key: 'origem', label: 'Origem' },
+        { key: 'ocorrencias', label: 'Ocorrencias', num: true },
+        { key: 'reclamacoes', label: 'Reclamacoes', num: true },
+        { key: 'procedencias', label: 'Procedentes', num: true },
+        { key: 'assistencias', label: 'Assistencias', num: true },
+        { key: 'acao', label: 'Acao', render: row => `<button type="button" data-geo-edit="${esc(row.cidade)}" data-geo-uf="${esc(row.uf)}">Editar</button> <button type="button" class="secondary" data-geo-ignore="${esc(row.cidade)}" data-geo-uf="${esc(row.uf)}">Ignorar</button>` }
+      ], data.mapa?.missingCities || []);
+      attachGeoActions();
+      table('eSlaTable', [
+        { key: 'analista', label: 'Analista SAC' },
+        { key: 'fechadas', label: 'Fechadas', num: true },
+        { key: 'dentro_sla', label: 'Dentro SLA', num: true },
+        { key: 'taxa_sla', label: '% SLA', num: true },
+        { key: 'media_dias_uteis', label: 'Media dias uteis', num: true }
+      ], data.productivity.tables.slaByAnalyst);
+      table('eHubRiskTable', operationPerformanceHeaders('HUB'), data.operation.tables.hubPerformance);
+      table('providerRiskTable', [
+        { key: 'prestador', label: 'Prestador' },
+        { key: 'hub', label: 'HUB' },
+        { key: 'regiao', label: 'Regional' },
+        { key: 'reclamacoes', label: 'Reclamacoes', num: true },
+        { key: 'procedentes', label: 'Procedentes', num: true },
+        { key: 'taxa_procedencia', label: '% procedencia', num: true },
+        { key: 'taxa_sla', label: '% SLA', num: true },
+        { key: 'score_risco', label: 'Score risco', num: true },
+        { key: 'status_risco', label: 'Status' }
+      ], data.providers?.providers || []);
+      attachProviderClicks();
+      addDrillClicks();
+    }
+
+    function renderInsights(data) {
+      const k = data.kpis;
+      const reg = data.charts.regiao[0];
+      const hub = data.charts.hub[0];
+      const motivo = data.charts.motivo[0];
+      const cliente = data.charts.cliente[0];
+      const insights = [
+        `Taxa de procedência no recorte: <strong>${pct(k.procedenciaPct)}</strong> (${fmt.format(k.procedentes)} de ${fmt.format(k.total)} reclamações).`,
+        reg ? `A região com maior volume é <strong>${esc(reg.label)}</strong>, com <strong>${fmt.format(reg.value)}</strong> procedentes.` : 'Sem região disponível no recorte.',
+        hub ? `O HUB mais concentrado é <strong>${esc(hub.label)}</strong>, com <strong>${fmt.format(hub.value)}</strong> procedentes.` : 'Sem HUB disponível no recorte.',
+        cliente ? `O cliente corporativo líder é <strong>${esc(cliente.label)}</strong>, responsável por <strong>${fmt.format(cliente.value)}</strong> procedentes.` : 'Sem cliente disponível no recorte.',
+        motivo ? `Principal motivo procedente: <strong>${esc(motivo.label)}</strong>.` : 'Sem motivo disponível no recorte.'
+      ];
+      el('insights').innerHTML = insights.map(item => `<li>${item}</li>`).join('');
+    }
+
+    function render(data) {
+      const k = data.kpis;
+      el('kTotal').textContent = fmt.format(k.total);
+      el('kProc').textContent = fmt.format(k.procedentes);
+      el('kProcNote').textContent = `${pct(k.procedenciaPct)} do total filtrado`;
+      el('kCities').textContent = fmt.format(k.cities);
+      el('kHubs').textContent = fmt.format(k.hubs);
+      el('kLead').textContent = k.leadCliente ? k.leadCliente.label : '-';
+      el('kLeadNote').textContent = k.leadCliente ? `${fmt.format(k.leadCliente.value)} procedentes` : 'Maior volume procedente';
+      el('kImpro').textContent = fmt.format(k.improcedentes || 0);
+      el('kSemStatus').textContent = fmt.format(k.semStatus || 0);
+      el('kReincidence').textContent = fmt.format(k.reincidencias || 0);
+      el('kMonthDelta').textContent = `${k.comparison.delta >= 0 ? '+' : ''}${fmt.format(k.comparison.delta || 0)}`;
+      el('kMonthDeltaNote').textContent = `${fmt.format(k.comparison.currentMonth || 0)} atual vs ${fmt.format(k.comparison.previousMonth || 0)} anterior`;
+      setKpiStatus('kProc', (k.procedenciaPct || 0) <= .45 ? 'good' : (k.procedenciaPct || 0) <= .65 ? 'warn' : 'critical', 'Procedencia menor e melhor');
+      setKpiStatus('kImpro', 'good', 'Improcedentes registrados');
+      setKpiStatus('kSemStatus', (k.semStatus || 0) <= 50 ? 'good' : (k.semStatus || 0) <= 200 ? 'warn' : 'critical', 'Sem status menor e melhor');
+
+      lineChart('lineChart', data.charts.monthly);
+      renderInsights(data);
+      barChart('regiaoChart', data.charts.regiao, 8);
+      barChart('hubChart', data.charts.hub, 12);
+      barChart('clienteChart', data.charts.cliente, 10);
+      barChart('cidadeChart', data.charts.cidade, 15);
+      barChart('motivoChart', data.charts.motivo, 15);
+      paretoChart('paretoReasonChart', data.charts.paretoReason, 12);
+      heatmapChart('heatmapRegionReason', data.charts.heatmapRegionReason);
+      barChart('validationMixChart', data.charts.validationMix, 8);
+      barChart('statusMixChart', data.charts.statusMix, 10);
+
+      table('monthlyMixTable', [
+        { key: 'label', label: 'Mes' },
+        { key: 'total', label: 'Total', num: true },
+        { key: 'procedentes', label: 'Procedentes', num: true },
+        { key: 'improcedentes', label: 'Improcedentes', num: true },
+        { key: 'sem_status', label: 'Sem status', num: true },
+        { key: 'taxa_procedencia', label: '% procedencia', num: true }
+      ], data.tables.monthlyMix);
+      const rateHeaders = [
+        { key: 'label', label: 'Dimensao' },
+        { key: 'total', label: 'Total', num: true },
+        { key: 'procedentes', label: 'Procedentes', num: true },
+        { key: 'taxa', label: '% procedencia', num: true }
+      ];
+      table('rateRegionTable', rateHeaders, data.tables.rateRegion);
+      table('rateHubTable', rateHeaders, data.tables.rateHub);
+      table('rateClientTable', rateHeaders, data.tables.rateClient);
+      table('comboTable', [
+        { key: 'regiao', label: 'Região' },
+        { key: 'hub', label: 'HUB' },
+        { key: 'cliente', label: 'Cliente' },
+        { key: 'cidade', label: 'Cidade' },
+        { key: 'procedentes', label: 'Procedentes', num: true }
+      ], data.tables.combo);
+      table('complaintDetailsTable', [
+        { key: 'data_reclamacao', label: 'Abertura' },
+        { key: 'dt_fechamento', label: 'Fechamento' },
+        { key: 'cliente', label: 'Cliente' },
+        { key: 'hub', label: 'HUB' },
+        { key: 'cidade', label: 'Cidade' },
+        { key: 'status_reclamacao', label: 'Status' },
+        { key: 'validacao', label: 'Validacao' },
+        { key: 'motivo', label: 'Motivo' },
+        { key: 'analista_sac', label: 'Analista SAC' },
+        { key: 'dias_uteis_fechamento', label: 'Dias uteis SLA', num: true },
+        { key: 'sla_ok', label: 'SLA ok', num: true }
+      ], data.tables.details);
+      table('recurrenceTable', [
+        { key: 'label', label: 'Cliente' },
+        { key: 'reincidencias', label: 'Reincidencias', num: true }
+      ], data.tables.recurrenceClients);
+      table('providerCriticalTable', [
+        { key: 'prestador', label: 'Prestador' },
+        { key: 'hub', label: 'HUB' },
+        { key: 'cidade', label: 'Cidade' },
+        { key: 'procedentes', label: 'Procedentes', num: true },
+        { key: 'sla_estourado', label: 'SLA estourado', num: true },
+        { key: 'score', label: 'Score critico', num: true }
+      ], data.tables.providerCritical);
+      table('grupoRegiaoTable', [
+        { key: 'regiao', label: 'Região' },
+        { key: 'grupo', label: 'Grupo de motivo' },
+        { key: 'procedentes', label: 'Procedentes', num: true }
+      ], data.tables.groupRegion);
+      table('prestadorTable', [
+        { key: 'prestador', label: 'Prestador' },
+        { key: 'hub', label: 'HUB' },
+        { key: 'cidade', label: 'Cidade' },
+        { key: 'procedentes', label: 'Procedentes', num: true }
+      ], data.tables.providers);
+      table('importsTable', [
+        { key: 'file_name', label: 'Arquivo' },
+        { key: 'imported_at', label: 'Importado em' },
+        { key: 'mode', label: 'Modo' },
+        { key: 'rows_total', label: 'Linhas lidas', num: true },
+        { key: 'rows_inserted', label: 'Novas linhas', num: true },
+        { key: 'procedentes', label: 'Procedentes', num: true },
+        { key: 'date_min', label: 'De' },
+        { key: 'date_max', label: 'Até' }
+      ], data.imports);
+      addDrillClicks();
+    }
+
+    function renderProductivityInsights(data) {
+      const k = data.kpis;
+      const leader = k.leadAnalyst;
+      const statusTotal = k.procedentes + k.improcedentes + k.semStatus;
+      const insights = [
+        `Volume total tratado no recorte: <strong>${fmt.format(k.total)}</strong> reclamacoes; fechadas: <strong>${fmt.format(k.fechadas || 0)}</strong>.`,
+        `Meta diaria: <strong>${fmt.format(k.dailyGoal)}</strong> fechadas por analista; atingimento geral: <strong>${pct(k.goalPct || 0)}</strong>.`,
+        `SLA: <strong>${pct(k.slaPct || 0)}</strong> dentro de ${fmt.format(k.slaTarget)} dias uteis.`,
+        leader ? `Analista com maior volume: <strong>${esc(leader.label)}</strong>, com <strong>${fmt.format(leader.value)}</strong> reclamacoes tratadas.` : 'Sem analista disponivel no recorte.',
+        statusTotal ? `Mix de resultado: <strong>${fmt.format(k.procedentes)}</strong> procedentes, <strong>${fmt.format(k.improcedentes)}</strong> improcedentes e <strong>${fmt.format(k.semStatus)}</strong> sem status.` : 'Sem classificacao disponivel no recorte.',
+        `Backlog no recorte: <strong>${fmt.format(k.backlog || 0)}</strong> reclamacoes nao fechadas.`
+      ];
+      el('pInsights').innerHTML = insights.map(item => `<li>${item}</li>`).join('');
+    }
+
+    function renderProductivity(data) {
+      const k = data.kpis;
+      el('pClosed').textContent = fmt.format(k.fechadas || 0);
+      el('pClosedNote').textContent = `${fmt.format(k.analysts)} analistas; meta ${fmt.format(k.dailyGoal)} por dia`;
+      el('pGoalPct').textContent = pct(k.goalPct || 0);
+      el('pGoalNote').textContent = `${fmt.format(k.fechadas || 0)} / ${fmt.format(k.goalExpected || 0)} fechadas esperadas`;
+      el('pSlaPct').textContent = pct(k.slaPct || 0);
+      el('pSlaNote').textContent = `Media: ${fmt.format(k.avgBusinessDaysToClose || 0)} dias uteis`;
+      el('pBacklog').textContent = fmt.format(k.backlog || 0);
+      el('pMonthDelta').textContent = `${k.comparison.delta >= 0 ? '+' : ''}${fmt.format(k.comparison.delta || 0)}`;
+      el('pMonthDeltaNote').textContent = `${fmt.format(k.comparison.currentMonth || 0)} atual vs ${fmt.format(k.comparison.previousMonth || 0)} anterior`;
+      setKpiStatus('pGoalPct', (k.goalPct || 0) >= .8 ? 'good' : (k.goalPct || 0) >= .5 ? 'warn' : 'critical', 'Meta maior e melhor');
+      setKpiStatus('pSlaPct', (k.slaPct || 0) >= .75 ? 'good' : (k.slaPct || 0) >= .5 ? 'warn' : 'critical', 'SLA maior e melhor');
+      setKpiStatus('pBacklog', (k.backlog || 0) <= 100 ? 'good' : (k.backlog || 0) <= 500 ? 'warn' : 'critical', 'Backlog menor e melhor');
+
+      lineChart('pMonthlyChart', data.charts.monthly, { valueLabels: true, maxTicks: 8 });
+      lineChart('pDailyChart', data.charts.daily, { valueLabels: false, maxTicks: 10 });
+      lineChart('pClosedDailyChart', data.charts.closedDaily, { valueLabels: false, maxTicks: 10 });
+      barChart('pAnalystChart', data.charts.analystVolume, 15);
+      barChart('pClosedAnalystChart', data.charts.closedByAnalyst, 15);
+      barChart('pBacklogChart', data.charts.backlog, 10);
+      barChart('pBacklogAgingChart', data.charts.backlogAging, 6);
+      scatterChart('pQualityScatter', data.tables.qualityVolume);
+      renderProductivityInsights(data);
+      const scoreFormula = data.scoreConfig && data.scoreConfig.formula ? [data.scoreConfig.formula] : [];
+      el('pExecutiveSummary').innerHTML = [...(data.executiveSummary || []), ...scoreFormula].map(item => `<li>${esc(item)}</li>`).join('');
+
+      table('pAnalystTable', [
+        { key: 'analista', label: 'Analista SAC' },
+        { key: 'total', label: 'Total tratado', num: true },
+        { key: 'procedentes', label: 'Procedentes', num: true },
+        { key: 'improcedentes', label: 'Improcedentes', num: true },
+        { key: 'sem_status', label: 'Sem status', num: true },
+        { key: 'fechadas', label: 'Fechadas', num: true },
+        { key: 'dias_ativos', label: 'Dias ativos', num: true },
+        { key: 'meses_ativos', label: 'Meses ativos', num: true },
+        { key: 'media_dia', label: 'Media/dia', num: true },
+        { key: 'media_mes', label: 'Media/mes', num: true },
+        { key: 'taxa_procedencia', label: '% procedente', num: true }
+      ], data.tables.analysts);
+
+      table('pDailyAnalystTable', [
+        { key: 'data', label: 'Data' },
+        { key: 'analista', label: 'Analista SAC' },
+        { key: 'total', label: 'Tratadas no dia', num: true }
+      ], data.tables.dailyByAnalyst);
+
+      table('pGoalTable', [
+        { key: 'analista', label: 'Analista SAC' },
+        { key: 'fechadas', label: 'Fechadas', num: true },
+        { key: 'dias_fechamento', label: 'Dias com fechamento', num: true },
+        { key: 'meta', label: 'Meta', num: true },
+        { key: 'atingimento_meta', label: '% meta', num: true }
+      ], data.tables.goalByAnalyst);
+
+      table('pSlaTable', [
+        { key: 'analista', label: 'Analista SAC' },
+        { key: 'fechadas', label: 'Fechadas', num: true },
+        { key: 'dentro_sla', label: 'Dentro SLA', num: true },
+        { key: 'taxa_sla', label: '% SLA', num: true },
+        { key: 'media_dias_uteis', label: 'Media dias uteis', num: true }
+      ], data.tables.slaByAnalyst);
+      table('pEfficiencyTable', [
+        { key: 'analista', label: 'Analista SAC' },
+        { key: 'total', label: 'Total', num: true },
+        { key: 'fechadas', label: 'Fechadas', num: true },
+        { key: 'backlog', label: 'Backlog', num: true },
+        { key: 'taxa_sla', label: '% SLA', num: true },
+        { key: 'taxa_procedencia', label: '% procedente', num: true },
+        { key: 'media_dias_uteis', label: 'Media dias uteis', num: true },
+        { key: 'score_eficiencia', label: 'Score eficiencia', num: true }
+      ], data.tables.efficiency);
+      table('pBacklogAnalystTable', [
+        { key: 'analista', label: 'Analista SAC' },
+        { key: 'backlog', label: 'Backlog', num: true },
+        { key: 'vencidas', label: 'Vencidas', num: true },
+        { key: 'dentro_prazo', label: 'Dentro prazo', num: true }
+      ], data.tables.backlogByAnalyst);
+      table('pSlaClientTable', [
+        { key: 'cliente', label: 'Cliente' },
+        { key: 'fechadas', label: 'Fechadas', num: true },
+        { key: 'dentro_sla', label: 'Dentro SLA', num: true },
+        { key: 'taxa_sla', label: '% SLA', num: true },
+        { key: 'media_dias_uteis', label: 'Media dias uteis', num: true }
+      ], data.tables.slaByClient);
+      table('pSlaReasonTable', [
+        { key: 'motivo', label: 'Motivo' },
+        { key: 'fechadas', label: 'Fechadas', num: true },
+        { key: 'dentro_sla', label: 'Dentro SLA', num: true },
+        { key: 'taxa_sla', label: '% SLA', num: true },
+        { key: 'media_dias_uteis', label: 'Media dias uteis', num: true }
+      ], data.tables.slaByReason);
+
+      table('pQualityVolumeTable', [
+        { key: 'analista', label: 'Analista SAC' },
+        { key: 'total', label: 'Total', num: true },
+        { key: 'procedentes', label: 'Procedentes', num: true },
+        { key: 'taxa_procedencia', label: '% procedente', num: true },
+        { key: 'fechadas', label: 'Fechadas', num: true },
+        { key: 'taxa_sla', label: '% SLA', num: true }
+      ], data.tables.qualityVolume);
+
+      const concentrationHeaders = [
+        { key: 'analista', label: 'Analista SAC' },
+        { key: 'dimensao', label: 'Dimensao' },
+        { key: 'total', label: 'Total', num: true }
+      ];
+      table('pConcentrationClientTable', concentrationHeaders, data.tables.concentrationClient);
+      table('pConcentrationHubTable', concentrationHeaders, data.tables.concentrationHub);
+      table('pConcentrationReasonTable', concentrationHeaders, data.tables.concentrationReason);
+
+      table('pDetailsTable', [
+        { key: 'data_reclamacao', label: 'Abertura' },
+        { key: 'dt_fechamento', label: 'Fechamento' },
+        { key: 'analista_sac', label: 'Analista SAC' },
+        { key: 'cliente', label: 'Cliente' },
+        { key: 'hub', label: 'HUB' },
+        { key: 'cidade', label: 'Cidade' },
+        { key: 'status_reclamacao', label: 'Status' },
+        { key: 'validacao', label: 'Validacao' },
+        { key: 'motivo', label: 'Motivo' },
+        { key: 'dias_uteis_fechamento', label: 'Dias uteis', num: true },
+        { key: 'sla_ok', label: 'SLA ok', num: true }
+      ], data.tables.details);
+
+      table('pStatusTable', [
+        { key: 'analista', label: 'Analista SAC' },
+        { key: 'procedentes', label: 'Procedentes', num: true },
+        { key: 'improcedentes', label: 'Improcedentes', num: true },
+        { key: 'sem_status', label: 'Sem status', num: true },
+        { key: 'fechadas', label: 'Fechadas', num: true },
+        { key: 'total', label: 'Total tratado', num: true }
+      ], data.charts.statusByAnalyst);
+      addDrillClicks();
+    }
+
+    function operationPerformanceHeaders(firstLabel = 'Dimensao') {
+      return [
+        { key: 'label', label: firstLabel },
+        { key: 'total', label: 'Total', num: true },
+        { key: 'concluidas', label: 'Concluidas', num: true },
+        { key: 'canceladas', label: 'Canceladas', num: true },
+        { key: 'frustradas', label: 'Frustradas', num: true },
+        { key: 'reagendadas', label: 'Reagendadas', num: true },
+        { key: 'improdutivas', label: 'Improdutivas', num: true },
+        { key: 'taxa_sucesso', label: '% sucesso', num: true },
+        { key: 'taxa_perda', label: '% perda', num: true },
+        { key: 'score_operacional', label: 'Score', num: true }
+      ];
+    }
+
+    function renderOperation(data) {
+      const k = data.kpis;
+      el('oTotal').textContent = fmt.format(k.total || 0);
+      el('oDone').textContent = fmt.format(k.concluidas || 0);
+      el('oDoneNote').textContent = `${pct(k.successPct || 0)} de sucesso operacional`;
+      el('oLoss').textContent = fmt.format(k.perdas || 0);
+      el('oLossNote').textContent = `${pct(k.lossPct || 0)} de perdas no recorte`;
+      el('oWorstHub').textContent = k.worstHub ? k.worstHub.label : '-';
+      el('oWorstHubNote').textContent = k.worstHub ? `${fmt.format(k.worstHub.total || 0)} assistencias; ${fmt.format(k.worstHub.taxa_perda || 0)}% perda` : 'Maior taxa de perda';
+      el('oMonthDelta').textContent = `${k.comparison.delta >= 0 ? '+' : ''}${fmt.format(k.comparison.delta || 0)}`;
+      el('oMonthDeltaNote').textContent = `${fmt.format(k.comparison.currentMonth || 0)} atual vs ${fmt.format(k.comparison.previousMonth || 0)} anterior`;
+      setKpiStatus('oDone', (k.successPct || 0) >= .8 ? 'good' : (k.successPct || 0) >= .65 ? 'warn' : 'critical', 'Sucesso maior e melhor');
+      setKpiStatus('oLoss', (k.lossPct || 0) <= .15 ? 'good' : (k.lossPct || 0) <= .30 ? 'warn' : 'critical', 'Perda menor e melhor');
+
+      lineChart('oMonthlyChart', data.charts.monthly, { valueLabels: true, maxTicks: 8 });
+      barChart('oStatusChart', data.charts.status, 12);
+      barChart('oReasonChart', data.charts.reason, 12);
+      barChart('oHubChart', data.charts.hub, 12);
+      barChart('oRegionalChart', data.charts.regional, 12);
+      barChart('oCityChart', data.charts.cityLoss, 12);
+      el('oInsights').innerHTML = (data.insights || []).map(item => `<li>${esc(item)}</li>`).join('');
+
+      table('oHubTable', operationPerformanceHeaders('HUB'), data.tables.hubPerformance);
+      table('oBestResourceTable', operationPerformanceHeaders('Montador'), data.tables.resourceBest);
+      table('oCriticalResourceTable', operationPerformanceHeaders('Montador'), data.tables.resourceCritical);
+      table('oRegionalTable', operationPerformanceHeaders('Regional'), data.tables.regionalPerformance);
+      table('oServiceTable', operationPerformanceHeaders('Atividade'), data.tables.servicePerformance);
+      table('oCityTable', operationPerformanceHeaders('Cidade'), data.tables.cityRisk);
+      table('oCapacityTable', [
+        { key: 'label', label: 'Montador' },
+        { key: 'atendimentos', label: 'Atendimentos', num: true },
+        { key: 'dias_ativos', label: 'Dias ativos', num: true },
+        { key: 'media_dia', label: 'Media/dia', num: true }
+      ], data.tables.capacity);
+      table('oImportsTable', [
+        { key: 'file_name', label: 'Arquivo' },
+        { key: 'imported_at', label: 'Importado em' },
+        { key: 'mode', label: 'Modo' },
+        { key: 'rows_total', label: 'Linhas lidas', num: true },
+        { key: 'rows_inserted', label: 'Novas linhas', num: true },
+        { key: 'concluidas', label: 'Concluidas', num: true },
+        { key: 'date_min', label: 'De' },
+        { key: 'date_max', label: 'Ate' }
+      ], data.imports);
+      addDrillClicks();
+    }
+
+    async function loadSettings() {
+      const [configPayload, health, autoStatus] = await Promise.all([
+        apiJson('/api/config', null),
+        apiJson('/api/health', null),
+        apiJson('/api/import/auto/status', null)
+      ]);
+      const cfg = configPayload.config || {};
+      el('cfgDailyGoal').value = cfg.daily_closed_goal ?? 10;
+      el('cfgSlaTarget').value = cfg.sla_business_days_target ?? 5;
+      el('cfgLagWarning').value = cfg.date_lag_warning_days ?? 45;
+      el('cfgAuthEnabled').value = String(Boolean(cfg.auth_enabled));
+      el('cfgClosedWeight').value = cfg.efficiency_score?.closed_weight ?? 1;
+      el('cfgSlaWeight').value = cfg.efficiency_score?.sla_weight ?? 1;
+      el('cfgBacklogPenalty').value = cfg.efficiency_score?.backlog_penalty ?? .75;
+      el('cfgRiskVolume').value = cfg.risk_score?.volume_weight ?? .4;
+      el('cfgRiskProcedencia').value = cfg.risk_score?.procedencia_weight ?? .3;
+      el('cfgRiskSla').value = cfg.risk_score?.sla_weight ?? .2;
+      el('cfgRiskReincidencia').value = cfg.risk_score?.reincidencia_weight ?? .1;
+      el('cfgCache').textContent = health.cacheAvailable ? 'Ativo' : 'Indisponivel';
+      el('cfgAutoImport').textContent = autoStatus.enabled ? 'Ativa' : 'Preparada';
+      el('cfgAutoImportNote').textContent = autoStatus.message || 'Monitor de planilhas';
+      el('cfgDeps').textContent = (health.missingDependencies || []).length ? 'Atencao' : 'OK';
+      table('cfgAutoTable', [
+        { key: 'folder', label: 'Pasta' },
+        { key: 'mode', label: 'Modo' },
+        { key: 'pending', label: 'Pendentes', num: true },
+        { key: 'processed', label: 'Processados', num: true },
+        { key: 'errors', label: 'Erros', num: true },
+        { key: 'lastRun', label: 'Ultima execucao' },
+        { key: 'message', label: 'Mensagem' }
+      ], [autoStatus]);
+    }
+
+    async function saveSettings() {
+      const config = {
+        daily_closed_goal: Number(el('cfgDailyGoal').value || 10),
+        sla_business_days_target: Number(el('cfgSlaTarget').value || 5),
+        date_lag_warning_days: Number(el('cfgLagWarning').value || 45),
+        auth_enabled: el('cfgAuthEnabled').value === 'true',
+        efficiency_score: {
+          closed_weight: Number(el('cfgClosedWeight').value || 1),
+          sla_weight: Number(el('cfgSlaWeight').value || 1),
+          backlog_penalty: Number(el('cfgBacklogPenalty').value || .75)
+        },
+        risk_score: {
+          volume_weight: Number(el('cfgRiskVolume').value || .4),
+          procedencia_weight: Number(el('cfgRiskProcedencia').value || .3),
+          sla_weight: Number(el('cfgRiskSla').value || .2),
+          reincidencia_weight: Number(el('cfgRiskReincidencia').value || .1)
+        }
+      };
+      try {
+        const response = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ config })
+        });
+        const payload = await response.json();
+        if (!payload.ok) throw new Error(payload.error || 'Falha ao salvar configuracoes.');
+        el('cfgStatus').innerHTML = '<strong>Configuracoes salvas.</strong> Os calculos foram atualizados.';
+        await loadActive();
+      } catch (error) {
+        el('cfgStatus').innerHTML = `Nao foi possivel salvar: <strong>${esc(error.message)}</strong>`;
+      }
+    }
+
+    async function uploadFile() {
+      if (location.protocol === 'file:') {
+        setStatus('Para importar planilhas e atualizar o banco, abra o painel pelo arquivo Iniciar Dashboard.bat. A tela aberta como arquivo mostra apenas o retrato atual dos dados.');
+        return;
+      }
+      const file = el('file').files[0];
+      if (!file) {
+        setStatus('Selecione uma planilha antes de importar.');
+        return;
+      }
+      el('upload').disabled = true;
+      setStatus(`Importando <strong>${esc(file.name)}</strong>...`);
+      const form = new FormData();
+      form.append('file', file);
+      form.append('mode', el('mode').value);
+      try {
+        const response = await fetch('/api/upload', { method: 'POST', body: form });
+        const payload = await response.json();
+        if (!payload.ok) throw new Error(payload.error || 'Falha ao importar.');
+        const r = payload.result;
+        if (r.type === 'operation') r.procedentes = r.concluidas || 0;
+        const sheetInfo = r.sheet ? ` Aba usada: <strong>${esc(r.sheet)}</strong>.` : '';
+        setStatus(`Importação concluída: <strong>${fmt.format(r.rowsInserted)}</strong> novas linhas carregadas, <strong>${fmt.format(r.procedentes)}</strong> procedentes lidos no arquivo.${sheetInfo}`);
+        await loadFilters();
+        await loadActive();
+      } catch (error) {
+        setStatus(`Não foi possível importar: <strong>${esc(error.message)}</strong>`);
+      } finally {
+        el('upload').disabled = false;
+      }
+    }
+
+    function updateDateControls() {
+      const period = el('period').value;
+      el('month').disabled = period !== 'month';
+      el('start').disabled = period !== 'range';
+      el('end').disabled = period !== 'range';
+    }
+
+    function setView(view) {
+      currentView = view;
+      el('topbarView').textContent = viewLabels[view] || view;
+      el('executiveView').hidden = view !== 'executive';
+      el('complaintsView').hidden = view !== 'complaints';
+      el('productivityView').hidden = view !== 'productivity';
+      el('operationView').hidden = view !== 'operation';
+      el('settingsView').hidden = view !== 'settings';
+      document.querySelectorAll('.view-button').forEach(button => {
+        button.classList.toggle('active', button.dataset.view === view);
+      });
+      loadActive();
+    }
+
+    for (const id of ['scope', 'period', 'month', 'start', 'end', 'regiao', 'hub', 'cliente', 'analista']) {
+      el(id).addEventListener('change', () => { updateDateControls(); loadActive(); });
+    }
+    el('cidade').addEventListener('input', () => loadActive());
+    el('upload').addEventListener('click', uploadFile);
+    el('saveConfig').addEventListener('click', saveSettings);
+    el('loginButton').addEventListener('click', login);
+    el('loginPassword').addEventListener('keydown', event => { if (event.key === 'Enter') login(); });
+    el('logoutButton').addEventListener('click', logout);
+    el('updateGeo').addEventListener('click', updateGeocidades);
+    el('exportGeoPending').addEventListener('click', () => {
+      if (location.protocol === 'file:') {
+        setStatus('Para exportar pendencias geograficas, abra o painel pelo arquivo Iniciar Dashboard.bat.');
+        return;
+      }
+      window.location.href = '/api/geocidades/pendentes.csv';
+    });
+    el('geoCancel').addEventListener('click', closeGeoModal);
+    el('geoSave').addEventListener('click', saveGeoCoordinate);
+    el('reload').addEventListener('click', async () => { await loadFilters(); await loadActive(); });
+    el('exportCsv').addEventListener('click', () => {
+      if (location.protocol === 'file:') {
+        setStatus('Para exportar CSV com filtros atuais, abra o painel pelo arquivo Iniciar Dashboard.bat.');
+        return;
+      }
+      window.location.href = `/api/export?${params()}`;
+    });
+    el('exportPdf').addEventListener('click', () => {
+      if (location.protocol === 'file:') {
+        setStatus('Para gerar PDF executivo, abra o painel pelo arquivo Iniciar Dashboard.bat.');
+        return;
+      }
+      window.location.href = `/api/export/pdf?${params()}`;
+    });
+    el('exportPpt').addEventListener('click', () => {
+      if (location.protocol === 'file:') {
+        setStatus('Para gerar a apresentacao executiva, abra o painel pelo arquivo Iniciar Dashboard.bat.');
+        return;
+      }
+      window.location.href = `/api/export/ppt?${params()}`;
+    });
+    document.querySelectorAll('.view-button').forEach(button => {
+      button.addEventListener('click', () => setView(button.dataset.view));
+    });
+    el('sideSearch').addEventListener('input', event => {
+      const term = event.target.value.trim().toLowerCase();
+      document.querySelectorAll('.side-item, .side-sub, .side-group').forEach(node => {
+        node.style.display = !term || node.textContent.toLowerCase().includes(term) ? '' : 'none';
+      });
+    });
+    el('clear').addEventListener('click', () => {
+      for (const id of ['scope', 'period', 'month', 'start', 'end', 'regiao', 'hub', 'cliente', 'analista', 'cidade']) el(id).value = '';
+      el('scope').value = 'procedentes';
+      el('period').value = 'all';
+      updateDateControls();
+      updateActiveFilters();
+      loadActive();
+    });
+
+    updateDateControls();
+    updateActiveFilters();
+    checkSession()
+      .then(ok => ok ? loadFilters().then(loadActive) : null)
+      .catch(error => showLogin(`Erro ao verificar sessao: <strong>${esc(error.message)}</strong>`));
+  </script>
+</body>
+</html>
