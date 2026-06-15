@@ -1,0 +1,22 @@
+{
+  "daily_closed_goal": 10,
+  "sla_business_days_target": 5,
+  "date_lag_warning_days": 45,
+  "custo_cancelamento": 0,
+  "custo_frustracao": 0,
+  "custo_improdutiva": 0,
+  "limite_alerta_amarelo": 40,
+  "limite_alerta_vermelho": 70,
+  "auth_enabled": true,
+  "efficiency_score": {
+    "closed_weight": 1.0,
+    "sla_weight": 1.0,
+    "backlog_penalty": 0.75
+  },
+  "risk_score": {
+    "volume_weight": 0.4,
+    "procedencia_weight": 0.3,
+    "sla_weight": 0.2,
+    "reincidencia_weight": 0.1
+  }
+}

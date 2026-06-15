@@ -1,0 +1,492 @@
+DOCUMENTAÇÃO COMPLETA – CENTRAL DE PERFORMANCE OPERACIONAL MMS
+1. Visão Geral
+
+A Central de Performance Operacional MMS é uma plataforma web desenvolvida para centralizar a análise de:
+
+Reclamações
+Produtividade
+Operação de Campo
+Qualidade Operacional
+Indicadores Executivos
+Gestão de Prestadores
+Gestão Regional
+Gestão de HUBs
+
+O objetivo principal é transformar dados operacionais em informações estratégicas para tomada de decisão.
+
+2. Arquitetura Geral
+Backend
+
+Tecnologia principal:
+
+Python 3.12
+
+Responsável por:
+
+Importação de planilhas
+Processamento dos dados
+Cálculo de indicadores
+API REST
+Alertas
+Mapa geográfico
+Controle de usuários
+Exportações
+
+Arquivos principais:
+
+app.py
+auth.py
+alerts.py
+analytics_reclamacoes.py
+analytics_produtividade.py
+analytics_operacao.py
+analytics_mapa.py
+auto_import.py
+Frontend
+
+Tecnologias:
+
+HTML
+CSS
+JavaScript
+Leaflet
+
+Responsável por:
+
+Interface do usuário
+Filtros
+Gráficos
+Mapas
+KPIs
+Navegação
+
+Arquivo principal:
+
+index.html
+Banco de Dados
+
+Tecnologia:
+
+SQLite
+
+Arquivo:
+
+reclamacoes.db
+
+Responsável por armazenar:
+
+Reclamações
+Operações
+Prestadores
+Clientes
+Usuários
+Configurações
+3. Estrutura de Navegação
+
+A aplicação possui uma Sidebar fixa.
+
+Módulos:
+
+Resumo Executivo
+Reclamações
+Produtividade
+Operação
+Mapa
+Alertas
+Configurações
+4. Resumo Executivo
+Objetivo
+
+Fornecer uma visão geral da saúde da operação.
+
+Indicadores
+Total de Reclamações
+
+Quantidade total registrada.
+
+Procedentes
+
+Reclamações confirmadas.
+
+Improcedentes
+
+Reclamações descartadas.
+
+Sem Validação
+
+Casos sem classificação.
+
+Reincidências
+
+Clientes com repetição do mesmo problema.
+
+Cidades Atendidas
+
+Quantidade de cidades impactadas.
+
+HUBs Ativos
+
+Quantidade de HUBs com movimentação.
+
+Cliente Líder
+
+Cliente com maior volume.
+
+5. Dashboard de Reclamações
+Objetivo
+
+Analisar causas e origens das reclamações.
+
+Gráfico Mensal
+
+Exibe evolução:
+
+Mês
+x
+Quantidade de Reclamações
+Reclamações por Região
+
+Exibe:
+
+Sudeste
+Nordeste
+Centro-Oeste
+Sul
+Norte
+Reclamações por HUB
+
+Permite identificar:
+
+HUBs críticos
+HUBs com maior volume
+Reclamações por Cliente
+
+Permite identificar:
+
+Clientes mais impactados
+Contratos mais problemáticos
+Reclamações por Cidade
+
+Mostra:
+
+Concentração geográfica
+Áreas críticas
+Pareto de Motivos
+
+Principais causas:
+
+Exemplos:
+
+Visita Não Realizada
+Certificado Finalizado Indevidamente
+Produto Montado Fora do Padrão
+Reagendamento Indevido
+
+Heatmap Região x Motivo
+
+Permite descobrir:
+
+Qual motivo é dominante em cada região.
+
+6. Dashboard de Produtividade
+Objetivo
+
+Avaliar desempenho da equipe.
+
+Indicadores:
+
+Volume Produzido
+
+Total de atividades concluídas.
+
+SLA
+
+Atividades dentro do prazo.
+
+Backlog
+
+Demandas pendentes.
+
+Eficiência
+
+Score calculado utilizando:
+
+Produção
++
+SLA
+-
+Penalização por Backlog
+
+Configuração:
+
+closed_weight
+sla_weight
+backlog_penalty
+7. Dashboard Operacional
+Objetivo
+
+Avaliar execução em campo.
+
+Indicadores:
+
+Visitas Realizadas
+Visitas Frustradas
+Cancelamentos
+Perdas Operacionais
+Taxa de Sucesso
+Eficiência Operacional
+
+Permite análise por:
+
+Região
+HUB
+Prestador
+Cidade
+
+8. Dashboard Geográfico
+Objetivo
+
+Visualizar a operação geograficamente.
+
+Tecnologia:
+
+Leaflet
+Fonte de Coordenadas
+
+Arquivo:
+
+cidades_brasil.json
+
+Contém:
+
+{
+  "cidade": "SAO PAULO",
+  "uf": "SP",
+  "lat": -23.5505,
+  "lon": -46.6333
+}
+
+Recursos
+Marcadores
+
+Cada cidade recebe um marcador.
+
+Popup
+
+Ao clicar:
+
+Cidade
+UF
+Volume
+Indicadores
+Filtros
+
+Pode ser filtrado por:
+
+Região
+Cliente
+HUB
+Período
+9. Sistema de Alertas
+Objetivo
+
+Detectar situações críticas automaticamente.
+
+Arquivo:
+
+alerts.py
+
+Exemplos
+Crescimento de Reclamações
+SLA abaixo da meta
+HUB Crítico
+Cidade Crítica
+Prestador Crítico
+Base desatualizada
+Classificações
+Verde
+Amarelo
+Vermelho
+10. Sistema de Autenticação
+
+Arquivo:
+
+auth.py
+
+Objetivo
+
+Controlar acesso aos dados.
+
+Perfis
+Administrador
+
+Acesso total.
+
+Coordenador
+
+Acesso regional.
+
+Analista
+
+Acesso individual.
+
+Consulta
+
+Somente leitura.
+
+Recursos
+Login
+
+Validação de usuário.
+
+Hash de Senha
+
+Utiliza:
+
+SHA256
+Sessão
+
+Token gerado automaticamente.
+
+11. Atualização Automática
+
+Arquivo:
+
+auto_import.py
+Objetivo
+
+Importar arquivos automaticamente.
+
+Estrutura
+auto_import/
+
+processados/
+
+erro/
+Fluxo
+Arquivo enviado
+Sistema valida
+Importa
+Atualiza indicadores
+Limpa cache
+Move arquivo
+Agendamento
+
+Tecnologia:
+
+APScheduler
+
+Execução periódica:
+
+A cada 30 minutos
+12. Sistema de Configuração
+
+Arquivo:
+
+config.json
+
+Parâmetros
+Meta Diária
+daily_closed_goal
+Meta SLA
+sla_business_days_target
+Tolerância de Atualização
+date_lag_warning_days
+Eficiência
+closed_weight
+sla_weight
+backlog_penalty
+13. Sistema de Dependências
+
+Validação automática.
+
+Caso falte alguma biblioteca:
+
+pandas
+numpy
+sqlalchemy
+cachetools
+apscheduler
+python-pptx
+reportlab
+jinja2
+
+O sistema exibe instruções para instalação.
+
+14. Sistema de Fallback
+
+Arquivo:
+
+dashboard_fallback.js
+
+Objetivo
+
+Garantir funcionamento mesmo sem API.
+
+Recursos
+Dados Simulados
+
+Mantém:
+
+KPIs
+Gráficos
+Filtros
+Identificação
+
+Possui:
+
+data_geracao_fallback
+
+Indicando quando os dados foram gerados.
+
+15. Testes Automatizados
+
+Arquivo:
+
+test_dashboard_core.py
+
+Testes Cobertos
+Datas úteis
+Importação
+Configuração
+Score
+Alertas
+Auto Import
+Dependências
+16. Próximas Evoluções Recomendadas
+Segurança
+Ativar login obrigatório
+Persistir sessões em banco
+Gestão
+Score de risco
+Dashboard financeiro
+Ranking de prestadores
+Inteligência
+Insights automáticos
+Alertas preditivos
+Geografia
+Heatmap
+Drill-down por estado
+Executivo
+Exportação PDF
+Exportação PowerPoint
+Escalabilidade
+Migrar SQLite para PostgreSQL
+Cache distribuído
+Conclusão
+
+A Central de Performance Operacional MMS já se encontra em um estágio avançado de maturidade, possuindo:
+
+Dashboard Executivo
+Dashboard de Reclamações
+Dashboard de Produtividade
+Dashboard Operacional
+Mapa Geográfico
+Sistema de Alertas
+Autenticação preparada
+Importação Automática
+Configuração Centralizada
+Testes Automatizados
+Arquitetura preparada para evolução futura
+
+O próximo ciclo de desenvolvimento deve focar em segurança, inteligência analítica, automação executiva e escalabilidade, transformando a plataforma em uma solução corporativa completa para gestão operacional da MMS.
