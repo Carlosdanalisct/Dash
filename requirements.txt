@@ -1,0 +1,9 @@
+pandas
+numpy
+openpyxl
+sqlalchemy
+cachetools
+apscheduler
+python-pptx
+reportlab
+jinja2
